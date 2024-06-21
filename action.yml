@@ -86,7 +86,7 @@ runs:
         cd local
         git remote add remote-config ../remote
         git fetch remote-config
-        git checkout -b ${{ inputs.site_repo_config_branch }} remote-config/{{ inputs.config_repo_branch}}
+        git checkout -b ${{ inputs.site_repo_config_branch }} remote-config/${{ inputs.config_repo_branch }}
         git push origin HEAD
         git remote remove remote-config
 
