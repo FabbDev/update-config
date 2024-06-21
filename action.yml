@@ -12,10 +12,10 @@ description: Updates the config-only branch and creates a PR if there are any ch
 # The repo calling this must be configured to support GitHub actions making PRs.
 
 inputs:
-  github_token:
-    description: A token with write access to the Drupal site repository.
-    type: string
-    required: true
+#  github_token:
+#    description: A token with write access to the Drupal site repository.
+#    type: string
+#    required: true
   config_repo:
     description: The GitHub config repo, eg. BrooksDigital/AbcConfig.
     type: string
@@ -44,6 +44,16 @@ inputs:
     type: string
     required: true
     default: staging
+  committer_name:
+    description: The name used on the git merge commit.
+    type: string
+    required: true
+    default: R2D2
+  committer_email:
+    description: The email used on the git merge commit.
+    type: string
+    required: true
+    default: accounts@brooks.digital
   github_notify:
     description: A space-separated list of github users including '@' to ping on a new PR, eg. '@andy @becca'.
     type: string
@@ -103,10 +113,10 @@ runs:
       if: ${{ env.local_head != env.remote_head }}
       working-directory: local
       env:
-        GH_TOKEN: ${{ inputs.github_token }}
+        GH_TOKEN: ${{ github.token }}
       shell: bash
       run: |
-        set -eux
+        set -eu
         if ! git show-branch remotes/origin/${{ inputs.site_repo_pr_branch }} > /dev/null; then
           git branch ${{ inputs.site_repo_pr_branch }} origin/${{ inputs.site_repo_pr_branch_base }}
         fi
@@ -117,8 +127,8 @@ runs:
         mv "$GITHUB_WORKSPACE"/remote/* .
         git add .
         if [[ -n "$(git status --porcelain)" ]]; then
-          git config user.name 'R2D2'
-          git config user.email accounts@brooks.digital
+          git config user.name '${{ inputs.committer_name }}'
+          git config user.email '${{ inputs.committer_email }}'
           git commit -m "Export config from Prod" -m "${{ inputs.config_repo }}:$remote_head"
           git push origin HEAD
           # Create a PR if there isn't already one.
