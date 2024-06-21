@@ -114,7 +114,7 @@ runs:
         
         cd config/sync
         rm -rf *.yml
-        mv ../../../remote/* .
+        mv "$GITHUB_WORKSPACE"/remote/* .
         git add .
         if [[ -n "$(git status --porcelain)" ]]; then
           git config user.name 'R2D2'
