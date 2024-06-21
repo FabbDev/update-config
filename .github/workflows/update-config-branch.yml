@@ -43,13 +43,22 @@ on:
       gh_notify:
         description: A space-separated list of github users including '@' to ping on a new PR, eg. '@andy @becca'.
         type: string
+    secrets:
+      CONFIG_REPO_TOKEN:
+        description: A token with read access to the config repository.
+        type: string
+        required: true
+      GITHUB_TOKEN:
+        description: A token with write access to the Drupal site repository.
+        type: string
+        required: true
 
 #  schedule:
 #    # * is a special character in YAML so you have to quote this string
 #    - cron:  '*/5 * * * *'
 
 jobs:
-  build:
+  update:
     permissions:
       contents: write
       pull-requests: write
@@ -70,7 +79,7 @@ jobs:
           repository: ${{ inputs.config_repo }}
           ref: ${{ inputs.config_repo_branch }}
           path: remote
-          token: ${{ secrets.config_repo_token }}
+          token: ${{ secrets.CONFIG_REPO_TOKEN }}
 
       - name: Read HEAD from new branches
         run: |
@@ -90,7 +99,7 @@ jobs:
           repository: ${{ inputs.config_repo }}
           ref: ${{ inputs.config_repo_branch }}
           path: remote
-          token: ${{ secrets.config_repo_token }}
+          token: ${{ secrets.CONFIG_REPO_TOKEN }}
           fetch-depth: 0
 
       - name: Update the local config-only branch from the remote
