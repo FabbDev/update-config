@@ -15,10 +15,10 @@ description: Updates the config-only branch and creates a PR if there are any ch
 # The repo calling this must be configured to support GitHub actions making PRs.
 
 inputs:
-#  github_token:
-#    description: A token with write access to the Drupal site repository.
-#    type: string
-#    required: true
+  github_token:
+    description: A token with write access to the Drupal site repository.
+    type: string
+    required: true
   config_repo:
     description: The GitHub config repo, eg. BrooksDigital/AbcConfig.
     type: string
@@ -71,7 +71,7 @@ runs:
         repository: ${{ inputs.config_repo }}
         ref: ${{ inputs.config_repo_branch }}
         path: remote
-        token: ${{ secrets.CONFIG_REPO_TOKEN }}
+        token: ${{ inputs.config_repo_token }}
 
     - name: Read HEAD from new branches
       run: |
@@ -91,7 +91,7 @@ runs:
         repository: ${{ inputs.config_repo }}
         ref: ${{ inputs.config_repo_branch }}
         path: remote
-        token: ${{ secrets.CONFIG_REPO_TOKEN }}
+        token: ${{ inputs.config_repo_token }}
         fetch-depth: 0
 
     - name: Update the local config-only branch from the remote
@@ -108,7 +108,7 @@ runs:
       if: ${{ env.local_head != env.remote_head }}
       working-directory: local
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ inputs.github_token }}
       run: |
         set -eu
         if ! git show-branch remotes/origin/${{ inputs.site_repo_pr_branch }}; then
