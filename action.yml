@@ -106,8 +106,8 @@ runs:
         GH_TOKEN: ${{ inputs.github_token }}
       shell: bash
       run: |
-        set -eu
-        if ! git show-branch remotes/origin/${{ inputs.site_repo_pr_branch }}; then
+        set -eux
+        if ! git show-branch remotes/origin/${{ inputs.site_repo_pr_branch }} > /dev/null; then
           git branch ${{ inputs.site_repo_pr_branch }} origin/${{ inputs.site_repo_pr_branch_base }}
         fi
         git checkout ${{ inputs.site_repo_pr_branch }}
