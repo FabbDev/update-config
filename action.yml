@@ -78,7 +78,7 @@ runs:
         # full checkout to set it up.
         fetch-depth: ${{ steps.checkout_site_repo_config_branch.outcome != 'failure' && '1' || '0' }}
 
-    - name: Create the site repository config-only branch.
+    - name: Create the site repository config-only branch if necessary.
       if: ${{ steps.checkout_site_repo_config_branch.outcome == 'failure' }}
       shell: sh
       run: |
@@ -133,7 +133,7 @@ runs:
       shell: bash
       run: |
         set -eu
-        if ! git show-branch remotes/origin/${{ inputs.site_repo_pr_branch }} > /dev/null; then
+        if ! git show-branch remotes/origin/${{ inputs.site_repo_pr_branch }} &> /dev/null; then
           git branch ${{ inputs.site_repo_pr_branch }} origin/${{ inputs.site_repo_pr_branch_base }}
         fi
         git checkout ${{ inputs.site_repo_pr_branch }}
