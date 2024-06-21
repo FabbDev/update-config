@@ -79,7 +79,7 @@ runs:
         fetch-depth: ${{ steps.checkout_site_repo_config_branch.outcome != 'failure' && '1' || '0' }}
 
     - name: Create the site repository config-only branch.
-    - if: ${{ steps.checkout_site_repo_config_branch.outcome == 'failure' }}
+      if: ${{ steps.checkout_site_repo_config_branch.outcome == 'failure' }}
       shell: sh
       run: |
         set -eu
