@@ -7,6 +7,9 @@ name: Update config-only branch and create PR
 # workflow creates a PR. If a PR already exists, the branch will just be
 # updated. One or more users can be notified.
 #
+# Secrets required:
+# - CONFIG_REPO_TOKEN: A token with read-only access to the config repo.
+# - GITHUB_TOKEN: The Drupal site repo token.
 # Workflow permissions:
 # The repo calling this must be configured to support GitHub actions making PRs.
 
@@ -17,9 +20,6 @@ on:
         description: The GitHub config repo, eg. BrooksDigital/AbcConfig.
         type: string
         required: true
-      config_repo_token:
-        description: The config repo token with read content access.
-        type: string
       config_repo_branch:
         description: The branch on the config repository.
         type: string
@@ -70,7 +70,7 @@ jobs:
           repository: ${{ inputs.config_repo }}
           ref: ${{ inputs.config_repo_branch }}
           path: remote
-          token: ${{ inputs.config_repo_token }}
+          token: ${{ secrets.config_repo_token }}
 
       - name: Read HEAD from new branches
         run: |
@@ -90,7 +90,7 @@ jobs:
           repository: ${{ inputs.config_repo }}
           ref: ${{ inputs.config_repo_branch }}
           path: remote
-          token: ${{ inputs.config_repo_token }}
+          token: ${{ secrets.config_repo_token }}
           fetch-depth: 0
 
       - name: Update the local config-only branch from the remote
