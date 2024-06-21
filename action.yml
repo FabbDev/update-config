@@ -12,10 +12,6 @@ description: Updates the config-only branch and creates a PR if there are any ch
 # The repo calling this must be configured to support GitHub actions making PRs.
 
 inputs:
-#  github_token:
-#    description: A token with write access to the Drupal site repository.
-#    type: string
-#    required: true
   config_repo:
     description: The GitHub config repo, eg. BrooksDigital/AbcConfig.
     type: string
@@ -65,9 +61,12 @@ runs:
     # by doing a shallow checkout of both and checking their hashes. If they're
     # different, then do a full checkout to enable a merge.
     - uses: actions/checkout@v4
+      id: checkout_site_repo_config_branch
       with:
         ref: ${{ inputs.site_repo_config_branch }}
         path: local
+      # It might error if the config-only branch doesn't exist yet.
+      continue-on-error: true
 
     - uses: actions/checkout@v4
       with:
@@ -75,6 +74,21 @@ runs:
         ref: ${{ inputs.config_repo_branch }}
         path: remote
         token: ${{ inputs.config_repo_token }}
+        # If we failed to checkout the site repo config branch, we'll need a
+        # full checkout to set it up.
+        fetch-depth: ${{ steps.checkout_site_repo_config_branch.outcome != 'failure' && '1' || '0' }}
+
+    - name: Create the site repository config-only branch.
+    - if: ${{ steps.checkout_site_repo_config_branch.outcome == 'failure' }}
+      shell: sh
+      run: |
+        set -eu
+        cd local
+        git remote add remote-config ../remote
+        git fetch remote-config
+        git checkout -b ${{ inputs.site_repo_config_branch }} remote-config/{{ inputs.config_repo_branch}}
+        git push origin HEAD
+        git remote remove remote-config
 
     - name: Read HEAD from new branches
       shell: sh
@@ -90,7 +104,9 @@ runs:
         fetch-depth: 0
 
     - uses: actions/checkout@v4
-      if: ${{ env.local_head != env.remote_head }}
+      # If the repo config branch was created then we already have a full
+      # checkout.
+      if: ${{ env.local_head != env.remote_head && steps.checkout_site_repo_config_branch.outcome != 'failure' }}
       with:
         repository: ${{ inputs.config_repo }}
         ref: ${{ inputs.config_repo_branch }}
@@ -137,6 +153,6 @@ runs:
               -B ${{ inputs.site_repo_pr_branch_base }} \
               -H ${{ inputs.site_repo_pr_branch }} \
               --title 'Merge latest config export into ${{ inputs.site_repo_pr_branch_base }}' \
-              --body 'PR created automatically by `.github/workflows/update-config-branch.yml`. ${{ inputs.github_notify }}'
+              --body 'PR created automatically by auto-config-export. ${{ inputs.github_notify }}'
           fi
         fi
