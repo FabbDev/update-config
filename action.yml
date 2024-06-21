@@ -1,0 +1,198 @@
+name: Update config branch
+description: Updates the config-only branch and creates a PR if there are any changes.
+# This works as part of automating config export. A cron job on Platform.sh
+# periodically updates an intermediate config repo with the latest config. The
+# config repo only contains config, it doesn't share a history with the site
+# repo. This workflow keeps a branch on the site repo up-to-date with a branch
+# on the config repo. Whenever the local config-only branch gets updated, the
+# workflow creates a PR. If a PR already exists, the branch will just be
+# updated. One or more users can be notified.
+#
+# Workflow permissions:
+# The repo calling this must be configured to support GitHub actions making PRs.
+
+inputs:
+  config_repo:
+    description: The GitHub config repo, eg. MyOrg/MySiteConfig.
+    type: string
+    required: true
+  config_repo_token:
+    description: A token with read access to the config repository.
+    type: string
+    required: true
+  config_repo_branch:
+    description: The branch on the config repository.
+    type: string
+    required: true
+    default: main
+  site_repo:
+    description: The GitHub Drupal site repo, eg. MyOrg/MySite
+    type: string
+    required: true
+    default: ${{ github.repository }}
+  site_repo_token:
+    description: The GitHub Drupal site repo token with access to write contents and create PRs.
+    type: string
+    required: true
+    default: ${{ github.token }}
+  site_repo_config_branch:
+    description: The branch on the site repository that mirrors the config repository.
+    type: string
+    required: true
+    default: config-only
+  site_repo_pr_branch:
+    description: The name of the topic branch to create on the site repository with config changes.
+    type: string
+    required: true
+    default: automatic-config-export
+  site_repo_pr_branch_base:
+    description: The branch on the site repository from which to create the PR branch.
+    type: string
+    required: true
+    default: staging
+  committer_name:
+    description: The name used on the git merge commit.
+    type: string
+    required: true
+    default: R2D2
+  committer_email:
+    description: The email used on the git merge commit.
+    type: string
+    required: true
+    default: update-config@example.com
+  github_notify:
+    description: A space-separated list of github users including '@' to ping on a new PR, eg. '@andy @becca'.
+    type: string
+
+runs:
+  using: composite
+  steps:
+    # Optimize for the normal case that the two branches are the same. So start
+    # by doing a shallow checkout of both and checking their hashes. If they're
+    # different, then do a full checkout to enable a merge.
+    - uses: actions/checkout@v4
+      id: checkout_site_repo_config_branch
+      with:
+        repository: ${{ inputs.site_repo }}
+        ref: ${{ inputs.site_repo_config_branch }}
+        token: ${{ inputs.site_repo_token }}
+        path: local
+      # It might error if the config-only branch doesn't exist yet.
+      continue-on-error: true
+
+    - uses: actions/checkout@v4
+      if: ${{ steps.checkout_site_repo_config_branch.outcome == 'failure' }}
+      with:
+        repository: ${{ inputs.site_repo }}
+        token: ${{ inputs.site_repo_token }}
+        path: local
+
+    - uses: actions/checkout@v4
+      with:
+        repository: ${{ inputs.config_repo }}
+        ref: ${{ inputs.config_repo_branch }}
+        token: ${{ inputs.config_repo_token }}
+        # If we failed to checkout the site repo config branch, we'll need a
+        # full checkout to set it up.
+        fetch-depth: ${{ steps.checkout_site_repo_config_branch.outcome != 'failure' && '1' || '0' }}
+        path: remote
+
+    - name: Create the site repository config-only branch if necessary.
+      if: ${{ steps.checkout_site_repo_config_branch.outcome == 'failure' }}
+      shell: sh
+      run: |
+        # Create the site repository config-only branch if necessary.
+        set -eu
+        cd local
+        git remote add remote-config ../remote
+        git fetch remote-config
+        git checkout -b ${{ inputs.site_repo_config_branch }} remote-config/${{ inputs.config_repo_branch }}
+        git push origin HEAD
+        git remote remove remote-config
+        echo 'Created the branch `${{ inputs.site_repo_config_branch }}` to mirror `${{ inputs.config_repo }}:${{ inputs.config_repo_branch }}`.' >> $GITHUB_STEP_SUMMARY
+
+    - name: Read HEAD from new branches
+      shell: sh
+      run: |
+        # Read HEAD from new branches
+        set -eu
+        local_head=$(git -C local rev-parse HEAD)
+        remote_head=$(git -C remote rev-parse HEAD)
+        echo "local_head=$local_head" >> "$GITHUB_ENV"
+        echo "remote_head=$remote_head" >> "$GITHUB_ENV"
+        if [ "$local_head" = "$remote_head" ]; then
+          echo 'The local config branch `${{ inputs.site_repo_config_branch }}` is up-to-date with the remote. No further action required.' >> $GITHUB_STEP_SUMMARY
+        fi
+
+    - uses: actions/checkout@v4
+      if: ${{ env.local_head != env.remote_head }}
+      with:
+        repository: ${{ inputs.site_repo }}
+        ref: ${{ inputs.site_repo_config_branch }}
+        token: ${{ inputs.site_repo_token }}
+        fetch-depth: 0
+        path: local
+
+    - uses: actions/checkout@v4
+      # If the repo config branch was created then we already have a full
+      # checkout.
+      if: ${{ env.local_head != env.remote_head && steps.checkout_site_repo_config_branch.outcome != 'failure' }}
+      with:
+        repository: ${{ inputs.config_repo }}
+        ref: ${{ inputs.config_repo_branch }}
+        path: remote
+        token: ${{ inputs.config_repo_token }}
+        fetch-depth: 0
+
+    - name: Update the local config-only branch from the remote
+      if: ${{ env.local_head != env.remote_head }}
+      working-directory: local
+      shell: sh
+      run: |
+        # Update the local config-only branch from the remote
+        set -eu
+        git remote add remote-config ../remote
+        git fetch remote-config
+        git reset --hard remote-config/${{ inputs.config_repo_branch }}
+        git push origin HEAD
+
+    - name: Create a site branch with the config and open a PR
+      if: ${{ env.local_head != env.remote_head }}
+      working-directory: local
+      env:
+        GH_TOKEN: ${{ inputs.site_repo_token }}
+      shell: bash
+      run: |
+        # Create a site branch with the config and open a PR
+        set -eu
+        source_branch=${{ inputs.site_repo_pr_branch }}
+        if ! git show-branch remotes/origin/${{ inputs.site_repo_pr_branch }} &> /dev/null; then
+          git branch ${{ inputs.site_repo_pr_branch }} origin/${{ inputs.site_repo_pr_branch_base }}
+          source_branch=${{ inputs.site_repo_pr_branch_base }}
+        fi
+        git checkout ${{ inputs.site_repo_pr_branch }}
+        
+        cd config/sync
+        rm *
+        mv "$GITHUB_WORKSPACE"/remote/* .
+        git add .
+        if [[ -n "$(git status --porcelain)" ]]; then
+          git config user.name '${{ inputs.committer_name }}'
+          git config user.email '${{ inputs.committer_email }}'
+          git commit -m "Export config from Prod" -m "${{ inputs.config_repo }}:$remote_head"
+          git push origin HEAD
+          echo 'Updated the config in branch `${{ inputs.site_repo_config_branch }}`.' >> $GITHUB_STEP_SUMMARY
+          # Create a PR if there isn't already one.
+          if [[ "$(gh pr list --head ${{ inputs.site_repo_pr_branch }} --json id)" == "[]" ]]; then 
+            pr_url=$(gh pr create \
+              -B ${{ inputs.site_repo_pr_branch_base }} \
+              -H ${{ inputs.site_repo_pr_branch }} \
+              --title 'Merge latest config export into ${{ inputs.site_repo_pr_branch_base }}' \
+              --body 'PR created automatically by update-config. ${{ inputs.github_notify }}')
+            echo "[Created a PR]($pr_url) to merge the changes back into \`${{ inputs.site_repo_pr_branch_base }}\`. " >> $GITHUB_STEP_SUMMARY
+          else
+            echo "A PR for the branch already exists. No further action required." >> $GITHUB_STEP_SUMMARY
+          fi
+        else
+          echo "Branch \`${{ inputs.site_repo_config_branch }}\` has been updated, but the changes match what's already in branch \`$source_branch\`. No further action required." >> $GITHUB_STEP_SUMMARY
+        fi

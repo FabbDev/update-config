@@ -1,0 +1,384 @@
+name: Test
+# THIS IS FOR TESTING THE ACTION: DO NOT USE IT IN YOUR DRUPAL PROJECT, USE
+# workflow-templates/update-config-branch.yml instead.
+#
+# Secrets
+# - TEST_CONFIG_REPO_TOKEN: A token with write access to the test config repo.
+# - TEST_SITE_REPO_TOKEN: A token with write access to the test site repo.
+# Variables
+# - TEST_CONFIG_REPO: The GitHub config repo for use with the test.
+# - TEST_SITE_REPO: The GitHub site repo for use with the test.
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+  schedule:
+    # * is a special character in YAML so you have to quote this string
+    - cron:  '0 0 1 * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-initial-setup:
+#    if: false
+    name: Test mirroring the config repo to the site repo (ie initial setup)
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-job
+    env:
+      test_config_repo_branch: "${{ github.job }}-main"
+      test_site_repo_config_branch: "${{ github.job }}-config-only"
+      test_site_repo_pr_branch: "${{ github.job }}-automatic-config-export"
+      test_site_repo_pr_branch_base: "${{ github.job }}-staging"
+    steps:
+
+      - uses: actions/checkout@v4
+        with:
+          path: test/update-config
+
+      - uses: ./test/update-config/.github/actions/test-setup
+        with:
+          branch_prefix: "${{ github.job }}-"
+          test_config_repo: ${{ vars.TEST_CONFIG_REPO }}
+          test_config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
+          test_config_repo_branch: ${{ env.test_config_repo_branch }}
+          test_site_repo: ${{ vars.TEST_SITE_REPO }}
+          test_site_repo_token: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+          test_site_repo_config_branch: ${{ env.test_site_repo_config_branch }}
+          test_site_repo_pr_branch: ${{ env.test_site_repo_pr_branch }}
+          test_site_repo_pr_branch_base: ${{ env.test_site_repo_pr_branch_base }}
+
+      - uses: ./test/update-config
+        with:
+          config_repo: ${{ vars.TEST_CONFIG_REPO }}
+          config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
+          config_repo_branch: ${{ env.test_config_repo_branch }}
+          site_repo: ${{ vars.TEST_SITE_REPO }}
+          site_repo_token: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+          site_repo_config_branch: ${{ env.test_site_repo_config_branch }}
+          site_repo_pr_branch: ${{ env.test_site_repo_pr_branch }}
+          site_repo_pr_branch_base: ${{ env.test_site_repo_pr_branch_base }}
+
+      - uses: ./test/update-config/.github/actions/test-assertions
+        with:
+          test_config_repo: ${{ vars.TEST_CONFIG_REPO }}
+          test_config_repo_branch: ${{ env.test_config_repo_branch }}
+          test_config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
+          test_site_repo: ${{ vars.TEST_SITE_REPO }}
+          test_site_repo_token: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+          test_site_repo_config_branch: ${{ env.test_site_repo_config_branch }}
+
+      - name: Assert the state after running the action
+        env:
+          GH_TOKEN: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+        working-directory: test/site
+        run: |
+          # Assert the state after running the action
+          set -eu
+          git checkout ${{ env.test_site_repo_pr_branch_base }}
+          if [[ "$(gh pr list --json id)" != "[]" ]]; then
+            echo "**TEST FAILURE:** There shouldn't be a PR after running the action the first time to create the config-only branch." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - uses: ./test/update-config/.github/actions/test-teardown
+        if: ${{ always() }}
+        with:
+          branch_prefix: "${{ github.job }}-"
+
+  test-create-pr:
+#    if: false
+    name: Test updating the mirrored config branch and creating a PR from it.
+    runs-on: ubuntu-latest
+    env:
+      test_config_repo_branch: "${{ github.job }}-main"
+      test_site_repo_config_branch: "${{ github.job }}-config-only"
+      test_site_repo_pr_branch: "${{ github.job }}-automatic-config-export"
+      test_site_repo_pr_branch_base: "${{ github.job }}-staging"
+    steps:
+
+      - uses: actions/checkout@v4
+        with:
+          path: test/update-config
+
+      - uses: ./test/update-config/.github/actions/test-setup
+        with:
+          branch_prefix: "${{ github.job }}-"
+          test_config_repo: ${{ vars.TEST_CONFIG_REPO }}
+          test_config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
+          test_config_repo_branch: ${{ env.test_config_repo_branch }}
+          test_site_repo: ${{ vars.TEST_SITE_REPO }}
+          test_site_repo_token: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+          test_site_repo_config_branch: ${{ env.test_site_repo_config_branch }}
+          test_site_repo_pr_branch: ${{ env.test_site_repo_pr_branch }}
+          test_site_repo_pr_branch_base: ${{ env.test_site_repo_pr_branch_base }}
+
+      - name: 'Test setup for testing creating a PR'
+        working-directory: test
+        run: |
+          set -eu
+          cd site
+          git remote add remote-config ../remote
+          git fetch remote-config
+          git checkout -b ${{ env.test_site_repo_config_branch }} remote-config/${{ env.test_config_repo_branch }}^
+          tmp_dir=$(mktemp -d)
+          cp * "$tmp_dir"
+          git push origin HEAD
+          
+          git checkout ${{ env.test_site_repo_pr_branch_base }}
+          rm config/sync/*
+          cp -r "$tmp_dir"/* config/sync
+          git add .
+          git commit --amend -m "Update"
+          git push origin HEAD --force
+
+      - uses: ./test/update-config
+        with:
+          config_repo: ${{ vars.TEST_CONFIG_REPO }}
+          config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
+          config_repo_branch: ${{ env.test_config_repo_branch }}
+          site_repo: ${{ vars.TEST_SITE_REPO }}
+          site_repo_token: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+          site_repo_config_branch: ${{ env.test_site_repo_config_branch }}
+          site_repo_pr_branch: ${{ env.test_site_repo_pr_branch }}
+          site_repo_pr_branch_base: ${{ env.test_site_repo_pr_branch_base }}
+
+      - uses: ./test/update-config/.github/actions/test-assertions
+        with:
+          test_config_repo: ${{ vars.TEST_CONFIG_REPO }}
+          test_config_repo_branch: ${{ env.test_config_repo_branch }}
+          test_config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
+          test_site_repo: ${{ vars.TEST_SITE_REPO }}
+          test_site_repo_token: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+          test_site_repo_config_branch: ${{ env.test_site_repo_config_branch }}
+
+      - name: Assert the state after running the action
+        env:
+          GH_TOKEN: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+        working-directory: test/site
+        run: |
+          set -eu
+          exit=0
+          tmp_dir=$(mktemp -d)
+          git checkout ${{ env.test_site_repo_config_branch }}
+          cp * "$tmp_dir"
+          
+          git checkout ${{ env.test_site_repo_pr_branch }}
+          if [[ "$(gh pr list --json id)" == "[]" ]]; then
+            echo "**TEST FAILURE:** There should be a PR created." >> "$GITHUB_STEP_SUMMARY"
+            exit=1
+          fi
+          
+          rm config/sync/*
+          mv "$tmp_dir"/* config/sync
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "**TEST FAILURE:** The PR branch config should match the config repo branch." >> "$GITHUB_STEP_SUMMARY"
+            exit=1          
+          fi
+          
+          rm -rf "$tmp_dir"
+          
+          exit $exit
+
+      - uses: ./test/update-config/.github/actions/test-teardown
+        if: ${{ always() }}
+        with:
+          branch_prefix: "${{ github.job }}-"
+
+  test-existing-pr:
+#    if: false
+    name: Test updating an existing PR.
+    runs-on: ubuntu-latest
+    env:
+      test_config_repo_branch: "${{ github.job }}-main"
+      test_site_repo_config_branch: "${{ github.job }}-config-only"
+      test_site_repo_pr_branch: "${{ github.job }}-automatic-config-export"
+      test_site_repo_pr_branch_base: "${{ github.job }}-staging"
+    steps:
+
+      - uses: actions/checkout@v4
+        with:
+          path: test/update-config
+
+      - uses: ./test/update-config/.github/actions/test-setup
+        with:
+          branch_prefix: "${{ github.job }}-"
+          test_config_repo: ${{ vars.TEST_CONFIG_REPO }}
+          test_config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
+          test_config_repo_branch: ${{ env.test_config_repo_branch }}
+          test_site_repo: ${{ vars.TEST_SITE_REPO }}
+          test_site_repo_token: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+          test_site_repo_config_branch: ${{ env.test_site_repo_config_branch }}
+          test_site_repo_pr_branch: ${{ env.test_site_repo_pr_branch }}
+          test_site_repo_pr_branch_base: ${{ env.test_site_repo_pr_branch_base }}
+
+      - name: 'Test setup for testing updating an existing PR'
+        env:
+          GH_TOKEN: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+        working-directory: test
+        run: |
+          set -eu
+          cd site
+          # Ensure the site repo config branch is behind the config repo.
+          git remote add remote-config ../remote
+          git fetch remote-config
+          git checkout -b ${{ env.test_site_repo_config_branch }} remote-config/${{ env.test_config_repo_branch }}^
+          tmp_dir=$(mktemp -d)
+          cp * "$tmp_dir"
+          git push origin HEAD
+          
+          # Set up an existing PR.
+          git checkout ${{ env.test_site_repo_pr_branch_base }}
+          rm config/sync/*
+          touch config/sync/test-existing-pr
+          git add config/sync
+          git commit --amend -m "Initial commmit"
+          git push origin HEAD --force
+          
+          git checkout -b ${{ env.test_site_repo_pr_branch }}
+          cp -r "$tmp_dir"/* config/sync
+          git add config/sync
+          git commit -m "Update"
+          git push origin HEAD
+          
+          gh pr create --base ${{ env.test_site_repo_pr_branch_base }} --title "Test PR" --body "Test PR"
+          
+          rm -rf "$tmp_dir"
+
+      - uses: ./test/update-config
+        with:
+          config_repo: ${{ vars.TEST_CONFIG_REPO }}
+          config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
+          config_repo_branch: ${{ env.test_config_repo_branch }}
+          site_repo: ${{ vars.TEST_SITE_REPO }}
+          site_repo_token: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+          site_repo_config_branch: ${{ env.test_site_repo_config_branch }}
+          site_repo_pr_branch: ${{ env.test_site_repo_pr_branch }}
+          site_repo_pr_branch_base: ${{ env.test_site_repo_pr_branch_base }}
+
+      - uses: ./test/update-config/.github/actions/test-assertions
+        with:
+          test_config_repo: ${{ vars.TEST_CONFIG_REPO }}
+          test_config_repo_branch: ${{ env.test_config_repo_branch }}
+          test_config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
+          test_site_repo: ${{ vars.TEST_SITE_REPO }}
+          test_site_repo_token: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+          test_site_repo_config_branch: ${{ env.test_site_repo_config_branch }}
+
+      - name: Assert the state after running the action
+        env:
+          GH_TOKEN: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+        working-directory: test/site
+        run: |
+          # Assert the state after running the action
+          set -eu
+          if [[ "$(gh pr list -H ${{ env.test_site_repo_pr_branch }} --json id)" == "[]" ]]; then
+            echo "**TEST FAILURE:** There should still be an existing PR." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - uses: ./test/update-config/.github/actions/test-teardown
+        if: ${{ always() }}
+        with:
+          branch_prefix: "${{ github.job }}-"
+
+  test-identical-config:
+#    if: false
+    name: Test updating the mirrored config branch only to find it matches what's already in staging.
+    runs-on: ubuntu-latest
+    env:
+      test_config_repo_branch: "${{ github.job }}-main"
+      test_site_repo_config_branch: "${{ github.job }}-config-only"
+      test_site_repo_pr_branch: "${{ github.job }}-automatic-config-export"
+      test_site_repo_pr_branch_base: "${{ github.job }}-staging"
+    steps:
+
+      - uses: actions/checkout@v4
+        with:
+          path: test/update-config
+
+      - uses: ./test/update-config/.github/actions/test-setup
+        with:
+          branch_prefix: "${{ github.job }}-"
+          test_config_repo: ${{ vars.TEST_CONFIG_REPO }}
+          test_config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
+          test_config_repo_branch: ${{ env.test_config_repo_branch }}
+          test_site_repo: ${{ vars.TEST_SITE_REPO }}
+          test_site_repo_token: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+          test_site_repo_config_branch: ${{ env.test_site_repo_config_branch }}
+          test_site_repo_pr_branch: ${{ env.test_site_repo_pr_branch }}
+          test_site_repo_pr_branch_base: ${{ env.test_site_repo_pr_branch_base }}
+
+      - name: 'Test setup for testing matching config'
+        working-directory: test
+        run: |
+          set -eu
+          cd site
+          git remote add remote-config ../remote
+          git fetch remote-config
+          git checkout -b ${{ env.test_site_repo_config_branch }} remote-config/${{ env.test_config_repo_branch }}^
+          tmp_dir=$(mktemp -d)
+          cp * "$tmp_dir"
+          git push origin HEAD
+
+      - uses: ./test/update-config
+        with:
+          config_repo: ${{ vars.TEST_CONFIG_REPO }}
+          config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
+          config_repo_branch: ${{ env.test_config_repo_branch }}
+          site_repo: ${{ vars.TEST_SITE_REPO }}
+          site_repo_token: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+          site_repo_config_branch: ${{ env.test_site_repo_config_branch }}
+          site_repo_pr_branch: ${{ env.test_site_repo_pr_branch }}
+          site_repo_pr_branch_base: ${{ env.test_site_repo_pr_branch_base }}
+
+      - uses: ./test/update-config/.github/actions/test-assertions
+        with:
+          test_config_repo: ${{ vars.TEST_CONFIG_REPO }}
+          test_config_repo_branch: ${{ env.test_config_repo_branch }}
+          test_config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
+          test_site_repo: ${{ vars.TEST_SITE_REPO }}
+          test_site_repo_token: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+          test_site_repo_config_branch: ${{ env.test_site_repo_config_branch }}
+
+      - name: Assert the state after running the action
+        env:
+          GH_TOKEN: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+        working-directory: test/site
+        run: |
+          set -eu
+          exit=0
+          tmp_dir=$(mktemp -d)
+          git checkout ${{ env.test_site_repo_config_branch }}
+          cp * "$tmp_dir"
+          
+          if [[ "$(gh pr list --head ${{ env.test_site_repo_pr_branch }} --json id)" != "[]" ]]; then
+            echo "**TEST FAILURE:** There should not be a PR created." >> "$GITHUB_STEP_SUMMARY"
+            exit=1
+          fi
+          
+          git checkout ${{ env.test_site_repo_pr_branch_base }}
+          rm config/sync/*
+          mv "$tmp_dir"/* config/sync
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "**TEST FAILURE:** The site staging branch should match the config repo branch." >> "$GITHUB_STEP_SUMMARY"
+            exit=1          
+          fi
+          
+          rm -rf "$tmp_dir"
+          
+          exit $exit
+
+      - uses: ./test/update-config/.github/actions/test-teardown
+        if: ${{ always() }}
+        with:
+          branch_prefix: "${{ github.job }}-"
