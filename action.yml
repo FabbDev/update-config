@@ -74,6 +74,7 @@ runs:
         token: ${{ inputs.config_repo_token }}
 
     - name: Read HEAD from new branches
+      shell: sh
       run: |
         echo "local_head=$(git -C local rev-parse HEAD)" >> "$GITHUB_ENV"
         echo "remote_head=$(git -C remote rev-parse HEAD)" >> "$GITHUB_ENV"
@@ -97,6 +98,7 @@ runs:
     - name: Update the local config-only branch from the remote
       if: ${{ env.local_head != env.remote_head }}
       working-directory: local
+      shell: sh
       run: |
         set -eu
         git remote add remote-config ../remote
@@ -109,6 +111,7 @@ runs:
       working-directory: local
       env:
         GITHUB_TOKEN: ${{ inputs.github_token }}
+      shell: bash
       run: |
         set -eu
         if ! git show-branch remotes/origin/${{ inputs.site_repo_pr_branch }}; then
