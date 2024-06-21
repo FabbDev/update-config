@@ -14,132 +14,123 @@ description: Updates the config-only branch and creates a PR if there are any ch
 # Workflow permissions:
 # The repo calling this must be configured to support GitHub actions making PRs.
 
-on:
-  workflow_call:
-    inputs:
-      config_repo:
-        description: The GitHub config repo, eg. BrooksDigital/AbcConfig.
-        type: string
-        required: true
-      config_repo_branch:
-        description: The branch on the config repository.
-        type: string
-        required: true
-        default: main
-      site_repo_config_branch:
-        description: The branch on the site repository that mirrors the config repository.
-        type: string
-        required: true
-        default: config-only
-      site_repo_pr_branch:
-        description: The name of the topic branch to create on the site repository with config changes.
-        type: string
-        required: true
-        default: automatic-config-export
-      site_repo_pr_branch_base:
-        description: The branch on the site repository from which to create the PR branch.
-        type: string
-        required: true
-        default: staging
-      gh_notify:
-        description: A space-separated list of github users including '@' to ping on a new PR, eg. '@andy @becca'.
-        type: string
-    secrets:
-      CONFIG_REPO_TOKEN:
-        description: A token with read access to the config repository.
-        type: string
-        required: true
-      GITHUB_TOKEN:
-        description: A token with write access to the Drupal site repository.
-        type: string
-        required: true
+inputs:
+#  github_token:
+#    description: A token with write access to the Drupal site repository.
+#    type: string
+#    required: true
+  config_repo:
+    description: The GitHub config repo, eg. BrooksDigital/AbcConfig.
+    type: string
+    required: true
+  config_repo_token:
+    description: A token with read access to the config repository.
+    type: string
+    required: true
+  config_repo_branch:
+    description: The branch on the config repository.
+    type: string
+    required: true
+    default: main
+  site_repo_config_branch:
+    description: The branch on the site repository that mirrors the config repository.
+    type: string
+    required: true
+    default: config-only
+  site_repo_pr_branch:
+    description: The name of the topic branch to create on the site repository with config changes.
+    type: string
+    required: true
+    default: automatic-config-export
+  site_repo_pr_branch_base:
+    description: The branch on the site repository from which to create the PR branch.
+    type: string
+    required: true
+    default: staging
+  github_notify:
+    description: A space-separated list of github users including '@' to ping on a new PR, eg. '@andy @becca'.
+    type: string
 
 #  schedule:
 #    # * is a special character in YAML so you have to quote this string
 #    - cron:  '*/5 * * * *'
 
-jobs:
-  update:
-    permissions:
-      contents: write
-      pull-requests: write
+runs:
+  using: composite
+  steps:
+    # Optimimze for the normal case that the two branches are the same. So
+    # start by doing a shallow checkout of both and checking their hashes. If
+    # they're different, then do a full checkout to enable a merge.
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.site_repo_config_branch }}
+        path: local
 
-    runs-on: ubuntu-latest
+    - uses: actions/checkout@v4
+      with:
+        repository: ${{ inputs.config_repo }}
+        ref: ${{ inputs.config_repo_branch }}
+        path: remote
+        token: ${{ secrets.CONFIG_REPO_TOKEN }}
 
-    steps:
-      # Optimimze for the normal case that the two branches are the same. So
-      # start by doing a shallow checkout of both and checking their hashes. If
-      # they're different, then do a full checkout to enable a merge.
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.site_repo_config_branch }}
-          path: local
+    - name: Read HEAD from new branches
+      run: |
+        echo "local_head=$(git -C local rev-parse HEAD)" >> "$GITHUB_ENV"
+        echo "remote_head=$(git -C remote rev-parse HEAD)" >> "$GITHUB_ENV"
 
-      - uses: actions/checkout@v4
-        with:
-          repository: ${{ inputs.config_repo }}
-          ref: ${{ inputs.config_repo_branch }}
-          path: remote
-          token: ${{ secrets.CONFIG_REPO_TOKEN }}
+    - uses: actions/checkout@v4
+      if: ${{ env.local_head != env.remote_head }}
+      with:
+        ref: ${{ inputs.site_repo_config_branch }}
+        path: local
+        fetch-depth: 0
 
-      - name: Read HEAD from new branches
-        run: |
-          echo "local_head=$(git -C local rev-parse HEAD)" >> "$GITHUB_ENV"
-          echo "remote_head=$(git -C remote rev-parse HEAD)" >> "$GITHUB_ENV"
+    - uses: actions/checkout@v4
+      if: ${{ env.local_head != env.remote_head }}
+      with:
+        repository: ${{ inputs.config_repo }}
+        ref: ${{ inputs.config_repo_branch }}
+        path: remote
+        token: ${{ secrets.CONFIG_REPO_TOKEN }}
+        fetch-depth: 0
 
-      - uses: actions/checkout@v4
-        if: ${{ env.local_head != env.remote_head }}
-        with:
-          ref: ${{ inputs.site_repo_config_branch }}
-          path: local
-          fetch-depth: 0
+    - name: Update the local config-only branch from the remote
+      if: ${{ env.local_head != env.remote_head }}
+      working-directory: local
+      run: |
+        set -eu
+        git remote add remote-config ../remote
+        git fetch remote-config
+        git reset --hard remote-config/${{ inputs.config_repo_branch }}
+        git push origin HEAD
 
-      - uses: actions/checkout@v4
-        if: ${{ env.local_head != env.remote_head }}
-        with:
-          repository: ${{ inputs.config_repo }}
-          ref: ${{ inputs.config_repo_branch }}
-          path: remote
-          token: ${{ secrets.CONFIG_REPO_TOKEN }}
-          fetch-depth: 0
-
-      - name: Update the local config-only branch from the remote
-        if: ${{ env.local_head != env.remote_head }}
-        working-directory: local
-        run: |
-          set -eu
-          git remote add remote-config ../remote
-          git fetch remote-config
-          git reset --hard remote-config/${{ inputs.config_repo_branch }}
+    - name: Create a site branch with the config and open a PR
+      if: ${{ env.local_head != env.remote_head }}
+      working-directory: local
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        set -eu
+        if ! git show-branch remotes/origin/${{ inputs.site_repo_pr_branch }}; then
+          git branch ${{ inputs.site_repo_pr_branch }} origin/${{ inputs.site_repo_pr_branch_base }}
+        fi
+        git checkout ${{ inputs.site_repo_pr_branch }}
+        
+        cd config/sync
+        rm -rf *.yml
+        mv ../../../remote/* .
+        git add .
+        if [[ -n "$(git status --porcelain)" ]]; then
+          git config user.name 'R2D2'
+          git config user.email accounts@brooks.digital
+          git commit -m "Export config from Prod" -m "${{ inputs.config_repo }}:$remote_head"
           git push origin HEAD
-
-      - name: Create a site branch with the config and open a PR
-        if: ${{ env.local_head != env.remote_head }}
-        working-directory: local
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -eu
-          if ! git show-branch remotes/origin/${{ inputs.site_repo_pr_branch }}; then
-            git branch ${{ inputs.site_repo_pr_branch }} origin/${{ inputs.site_repo_pr_branch_base }}
+          # Create a PR if there isn't already one.
+          if [[ "$(gh pr list --head ${{ inputs.site_repo_pr_branch }} --json id)" == "[]" ]]; then 
+            gh pr create \
+              -B ${{ inputs.site_repo_pr_branch_base }} \
+              -H ${{ inputs.site_repo_pr_branch }} \
+              --title 'Merge latest config export into ${{ inputs.site_repo_pr_branch_base }}' \
+              --body 'PR created automatically by `.github/workflows/update-config-branch.yml`. ${{ inputs.github_notify }}'
           fi
-          git checkout ${{ inputs.site_repo_pr_branch }}
-          
-          cd config/sync
-          rm -rf *.yml
-          mv ../../../remote/* .
-          git add .
-          if [[ -n "$(git status --porcelain)" ]]; then
-            git config user.name 'R2D2'
-            git config user.email accounts@brooks.digital
-            git commit -m "Export config from Prod" -m "${{ inputs.config_repo }}:$remote_head"
-            git push origin HEAD
-            # Create a PR if there isn't already one.
-            if [[ "$(gh pr list --head ${{ inputs.site_repo_pr_branch }} --json id)" == "[]" ]]; then 
-              gh pr create \
-                -B ${{ inputs.site_repo_pr_branch_base }} \
-                -H ${{ inputs.site_repo_pr_branch }} \
-                --title 'Merge latest config export into ${{ inputs.site_repo_pr_branch_base }}' \
-                --body 'PR created automatically by `.github/workflows/update-config-branch.yml`. ${{ inputs.gh_notify }}'
-            fi
-          fi
+        fi
