@@ -8,9 +8,6 @@ description: Updates the config-only branch and creates a PR if there are any ch
 # workflow creates a PR. If a PR already exists, the branch will just be
 # updated. One or more users can be notified.
 #
-# Secrets required:
-# - CONFIG_REPO_TOKEN: A token with read-only access to the config repo.
-# - GITHUB_TOKEN: The Drupal site repo token.
 # Workflow permissions:
 # The repo calling this must be configured to support GitHub actions making PRs.
 
@@ -50,10 +47,6 @@ inputs:
   github_notify:
     description: A space-separated list of github users including '@' to ping on a new PR, eg. '@andy @becca'.
     type: string
-
-#  schedule:
-#    # * is a special character in YAML so you have to quote this string
-#    - cron:  '*/5 * * * *'
 
 runs:
   using: composite
@@ -110,7 +103,7 @@ runs:
       if: ${{ env.local_head != env.remote_head }}
       working-directory: local
       env:
-        GITHUB_TOKEN: ${{ inputs.github_token }}
+        GH_TOKEN: ${{ inputs.github_token }}
       shell: bash
       run: |
         set -eu
