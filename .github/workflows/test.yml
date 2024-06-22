@@ -85,6 +85,8 @@ jobs:
           
           exit $exit
 
+      # TEAR DOWN AT LEAST CLEAR OUT NON-TEST DIR
+      # CAN I USE A TEMP DIR?
 
       - uses: ./test/update-config/.github/actions/test-setup
 
@@ -96,7 +98,7 @@ jobs:
           cd remote
           git checkout -b reduced-history
           git reset --hard HEAD^
-          git push origin HEAD:main
+          git push origin HEAD:main --force
 
       - uses: andriokha/auto-config-export@main
         with:
