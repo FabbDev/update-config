@@ -72,8 +72,8 @@ runs:
     # different, then do a full checkout to enable a merge.
     - uses: actions/checkout@v4
       id: checkout_site_repo_config_branch
-      repository: ${{ inputs.site_repo }}
       with:
+        repository: ${{ inputs.site_repo }}
         ref: ${{ inputs.site_repo_config_branch }}
         path: local
       # It might error if the config-only branch doesn't exist yet.
