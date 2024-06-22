@@ -70,7 +70,7 @@ jobs:
           git add .
           git commit -m "Add mock Drupal site"
           git push origin HEAD:staging --force
-          git remote add remote-config "$GITHUB_WORKSPACE/remote"
+          git remote add remote-config "../remote"
           git fetch remote-config
           git checkout -b config-only remote-config/new-main
           git push origin HEAD
