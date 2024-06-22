@@ -8,4 +8,4 @@ runs:
     - name: Tear down for test
       shell: bash
       run: |
-        rm -rf .
+        rm -rf * .*
