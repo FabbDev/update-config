@@ -13,7 +13,6 @@ runs:
         git config --global user.email 'test@example.com'
 
         pushd remote
-        git branch -D new-main 2> /dev/null || true
         git checkout --orphan new-main
         git rm -rf .
         touch c d e
@@ -23,6 +22,9 @@ runs:
         git add c
         git commit -m "Updated c"
         git push origin HEAD:main --force
+        git checkout main
+        git reset --hard new-main
+        git branch -d new-main
         popd
 
         pushd site
@@ -35,6 +37,9 @@ runs:
         git add .
         git commit -m "Add mock Drupal site"
         git push origin HEAD:staging --force
+        git checkout staging
+        git reset --hard new-staging
+        git branch -d new-staging
         
         git push -d origin config-only || true
 
