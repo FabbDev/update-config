@@ -1,5 +1,6 @@
 name: Setup for test
 description: Prepares test repos for automated testing.
+# TODO: Delete any open PRs on the site repo.
 
 runs:
   using: composite
