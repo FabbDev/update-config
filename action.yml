@@ -140,8 +140,10 @@ runs:
       shell: bash
       run: |
         set -eu
+        source_branch=${{ inputs.site_repo_pr_branch }}
         if ! git show-branch remotes/origin/${{ inputs.site_repo_pr_branch }} &> /dev/null; then
           git branch ${{ inputs.site_repo_pr_branch }} origin/${{ inputs.site_repo_pr_branch_base }}
+          source_branch=${{ inputs.site_repo_pr_branch_base }}
         fi
         git checkout ${{ inputs.site_repo_pr_branch }}
         
@@ -167,5 +169,5 @@ runs:
             echo "A PR for the branch already exists. No further action required." >> $GITHUB_STEP_SUMMARY
           fi
         else
-          echo "Although there were updates in the config repo, the changes match what's already in branch \`${{ inputs.site_repo_pr_branch_base }}\`. No further action required." >> $GITHUB_STEP_SUMMARY
+          echo "Although there were updates in the config repo, the changes match what's already in branch \`$source_branch\`. No further action required." >> $GITHUB_STEP_SUMMARY
         fi
