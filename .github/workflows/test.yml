@@ -63,6 +63,7 @@ jobs:
           GH_TOKEN: ${{ secrets.TEST_SITE_REPO_TOKEN }}
         working-directory: test
         run: |
+          # TEST STEP SUMMARY
           set -eux
           exit=0
           cat "$GITHUB_STEP_SUMMARY"
@@ -95,10 +96,11 @@ jobs:
       - name: 'Test setup for testing creating a PR'
         working-directory: test
         run: |
-          cd remote
-          git checkout -b reduced-history
-          git reset --hard HEAD^
-          git push origin HEAD:main --force
+          cd site
+          git remote add remote-config ../remote
+          git fetch remote-config
+          git checkout -b config-only remote-config/main^
+          git push origin HEAD
 
       - uses: andriokha/auto-config-export@main
         with:
@@ -120,7 +122,7 @@ jobs:
           git -C remote fetch origin main
           
           if [[ "$(git -C remote rev-parse origin/main)" != "$(git -C site rev-parse origin/config-only)" ]]; then
-            echo "The Drupal site repo's config-only branch wasn't in sync with the config repo's main branch." >> "$GITHUB_STEP_SUMMARY"
+            echo "TEST FAILURE: The Drupal site repo's config-only branch wasn't in sync with the config repo's main branch." >> "$GITHUB_STEP_SUMMARY"
             exit=1
           fi
           
@@ -128,7 +130,7 @@ jobs:
           git fetch
           git checkout staging
           if [[ "$(gh pr list --json id)" == "[]" ]]; then
-            echo "There should be a PR created." >> "$GITHUB_STEP_SUMMARY"
+            echo "TEST FAILURE: There should be a PR created." >> "$GITHUB_STEP_SUMMARY"
             exit=1
           fi
           
