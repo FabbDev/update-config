@@ -102,6 +102,7 @@ jobs:
           git remote add remote-config ../remote
           git fetch remote-config
           git checkout -b config-only remote-config/main^
+          git rev-parse HEAD
           git push origin HEAD
 
       - uses: andriokha/auto-config-export@main

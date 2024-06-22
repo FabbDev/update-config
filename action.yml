@@ -94,6 +94,7 @@ runs:
       if: ${{ steps.checkout_site_repo_config_branch.outcome == 'failure' }}
       shell: sh
       run: |
+        # Create the site repository config-only branch if necessary.
         set -eu
         cd local
         git remote add remote-config ../remote
@@ -108,6 +109,7 @@ runs:
     - name: Read HEAD from new branches
       shell: sh
       run: |
+        # Read HEAD from new branches
         set -eu
         local_head=$(git -C local rev-parse HEAD)
         remote_head=$(git -C remote rev-parse HEAD)
@@ -142,12 +144,13 @@ runs:
       run: |
         # Update the local config-only branch from the remote
         set -eu
-        echo "::group::Update the local config-only branch from the remote"
+        # echo "::group::Update the local config-only branch from the remote"
         git remote add remote-config ../remote
         git fetch remote-config
         git reset --hard remote-config/${{ inputs.config_repo_branch }}
+        git log
         git push origin HEAD
-        echo "::endgroup::"
+        # echo "::endgroup::"
 
     - name: Create a site branch with the config and open a PR
       if: ${{ env.local_head != env.remote_head }}
@@ -156,6 +159,7 @@ runs:
         GH_TOKEN: ${{ github.token }}
       shell: bash
       run: |
+        # Create a site branch with the config and open a PR
         set -eu
         source_branch=${{ inputs.site_repo_pr_branch }}
         if ! git show-branch remotes/origin/${{ inputs.site_repo_pr_branch }} &> /dev/null; then

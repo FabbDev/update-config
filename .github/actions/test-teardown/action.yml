@@ -5,7 +5,7 @@ description: Makes any necessary changes to clean up after running a test
 runs:
   using: composite
   steps:
-    - name: Setup for test
+    - name: Tear down for test
       shell: bash
       run: |
         rm -rf remote local
