@@ -33,6 +33,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          path: test/update-config
+
+      - uses: actions/checkout@v4
+        with:
           repository: ${{ vars.TEST_SITE_REPO }}
           token: ${{ secrets.TEST_SITE_REPO_TOKEN }}
           path: test/site
@@ -45,7 +49,7 @@ jobs:
           path: test/remote
           fetch-depth: 0
 
-      - uses: ./.github/actions/test-setup
+      - uses: test/update-config/.github/actions/test-setup
 
       - uses: andriokha/auto-config-export@main
         with:
