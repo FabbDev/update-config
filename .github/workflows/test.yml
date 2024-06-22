@@ -67,8 +67,8 @@ jobs:
           exit=0
           cat "$GITHUB_STEP_SUMMARY"
           
-          git -C site fetch config-only
-          git -C remote fetch main
+          git -C site fetch origin config-only
+          git -C remote fetch origin main
           
           if [[ "$(git -C remote rev-parse origin/main)" != "$(git -C site rev-parse origin/config-only)" ]]; then
             echo "The Drupal site repo's config-only branch wasn't in sync with the config repo's main branch." >> "$GITHUB_STEP_SUMMARY"
