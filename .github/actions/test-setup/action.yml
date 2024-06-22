@@ -18,6 +18,9 @@ runs:
         touch c d e
         git add .
         git commit -m "Add initial mock config"
+        cat modified > c
+        git add c
+        git commit -m "Updated c"
         git push origin HEAD:main --force
         echo "CONFIG_HASH: $(git rev-parse HEAD)"
         popd
@@ -33,9 +36,6 @@ runs:
         git commit -m "Add mock Drupal site"
         git push origin HEAD:staging --force
         git push -d origin config-only || true
-        #git remote add remote-config "../remote"
-        #git fetch remote-config
-        #git checkout -b config-only remote-config/new-main
 
         git push origin HEAD --force
         popd
