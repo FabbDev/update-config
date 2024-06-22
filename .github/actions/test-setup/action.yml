@@ -5,6 +5,8 @@ runs:
   using: composite
   steps:
     - name: Setup for test
+      shell: bash
+      working-directory: test
       run: |
         git config --global user.name 'Test User'
         git config --global user.email 'test@example.com'

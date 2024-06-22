@@ -45,9 +45,7 @@ jobs:
           path: test/remote
           fetch-depth: 0
 
-      - name: Setup for test
-        uses: ./.github/actions/test-setup
-        working-directory: test
+      - uses: ./.github/actions/test-setup
 
       - uses: andriokha/auto-config-export@main
         with:
