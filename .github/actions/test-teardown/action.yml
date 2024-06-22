@@ -9,8 +9,8 @@ runs:
       shell: bash
       run: |
         tmp=$(mktemp -d)
-        mv test/config-update "$tmp"
+        mv test/update-config "$tmp"
         rm -rf * .*
         mkdir test
-        mv "$tmp/config-update" test
+        mv "$tmp/update-config" test
         rm -rf "$tmp"
