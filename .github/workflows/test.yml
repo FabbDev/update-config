@@ -7,7 +7,7 @@ name: Test
 # - TEST_SITE_REPO_TOKEN: A token with write access to the test site repo.
 # Variables
 # - TEST_CONFIG_REPO: The GitHub config repo for use with the test.
-# - TEST_SITE_REPO: The GitHub repo for use with the test.
+# - TEST_SITE_REPO: The GitHub site repo for use with the test.
 
 on:
   push:
@@ -35,21 +35,12 @@ jobs:
         with:
           path: test/update-config
 
-      - uses: actions/checkout@v4
-        with:
-          repository: ${{ vars.TEST_SITE_REPO }}
-          token: ${{ secrets.TEST_SITE_REPO_TOKEN }}
-          path: test/site
-          fetch-depth: 0
-
-      - uses: actions/checkout@v4
-        with:
-          repository: ${{ vars.TEST_CONFIG_REPO }}
-          token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
-          path: test/remote
-          fetch-depth: 0
-
       - uses: ./test/update-config/.github/actions/test-setup
+        with:
+          test_config_repo: ${{ vars.TEST_CONFIG_REPO }}
+          test_config_repo_token: ${{ vars.TEST_CONFIG_REPO_TOKEN }}
+          test_site_repo: ${{ vars.TEST_SITE_REPO }}
+          test_site_repo_token: ${{ vars.TEST_SITE_REPO_TOKEN }}
 
       - uses: andriokha/auto-config-export@main
         with:
@@ -88,10 +79,12 @@ jobs:
           
       - uses: ./test/update-config/.github/actions/test-teardown
 
-      # TEAR DOWN AT LEAST CLEAR OUT NON-TEST DIR
-      # CAN I USE A TEMP DIR?
-
       - uses: ./test/update-config/.github/actions/test-setup
+        with:
+          test_config_repo: ${{ vars.TEST_CONFIG_REPO }}
+          test_config_repo_token: ${{ vars.TEST_CONFIG_REPO_TOKEN }}
+          test_site_repo: ${{ vars.TEST_SITE_REPO }}
+          test_site_repo_token: ${{ vars.TEST_SITE_REPO_TOKEN }}
 
       # TODO FACTOR OUT COMMON ASSERTIONS, POST TEST NORMALIZATION AND TEAR DOWN.
 

@@ -2,9 +2,41 @@ name: Setup for test
 description: Prepares test repos for automated testing.
 # TODO: Delete any open PRs on the site repo.
 
+inputs:
+  test_site_repo:
+    description: The GitHub site repo for use with the test.
+    type: string
+    required: true
+  test_site_repo_token:
+    description: A token with write access to the test site repo.
+    type: string
+    required: true
+  test_config_repo:
+    description: The GitHub config repo for use with the test.
+    type: string
+    required: true
+  test_config_repo_token:
+    description: A token with write access to the test config repo.
+    type: string
+    required: true
+
 runs:
   using: composite
   steps:
+    - uses: actions/checkout@v4
+      with:
+        repository: ${{ input.test_site_repo }}
+        token: ${{ inputs.test_site_repo_token }}
+        path: test/site
+        fetch-depth: 0
+
+    - uses: actions/checkout@v4
+      with:
+        repository: ${{ inputs.test_config_repo }}
+        token: ${{ inputs.test_config_repo_token }}
+        path: test/remote
+        fetch-depth: 0
+
     - name: Setup for test
       shell: bash
       working-directory: test
