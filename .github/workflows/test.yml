@@ -61,14 +61,29 @@ jobs:
       - name: Assert the state after running the action
         env:
           GH_TOKEN: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+        path: test
         run: |
           set -eux
-          cd test/site
+          exit=0
+          cat "$GITHUB_STEP_SUMMARY"
+          
+          git -C site fetch config-only
+          git -C remote fetch main
+          
+          if [[ "$(git -C remote rev-parse origin/main)" != "$(git -C site rev-parse origin/config-only)" ]]; then
+            echo "The Drupal site repo's config-only branch wasn't in sync with the config repo's main branch." >> "$GITHUB_STEP_SUMMARY"
+            exit=1
+          fi
+          
+          cd site
           git fetch
           git checkout staging
           if [[ "$(gh pr list --json id)" != "[]" ]]; then
-            exit 1
+            echo "There shouldn't be a PR after running the action the first time to create the config-only branch."
+            exit=1
           fi
+          
+          exit $exit
         
 
         # TEARDOWN DELETE NAY PRS
