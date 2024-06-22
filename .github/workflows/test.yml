@@ -35,20 +35,19 @@ jobs:
         with:
           repository: ${{ vars.TEST_SITE_REPO }}
           token: ${{ secrets.TEST_SITE_REPO_TOKEN }}
-          path: site
+          path: test/site
           fetch-depth: 0
 
       - uses: actions/checkout@v4
         with:
           repository: ${{ vars.TEST_CONFIG_REPO }}
-          path: remote
+          path: test/remote
           token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
           fetch-depth: 0
 
       - name: Setup for the test
+        working-directory: test
         run: |
-          mkdir test
-          cd test
           git config --global user.name 'Test User'
           git config --global user.email 'test@example.com'
 
