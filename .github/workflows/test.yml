@@ -61,7 +61,7 @@ jobs:
       - name: Assert the state after running the action
         env:
           GH_TOKEN: ${{ secrets.TEST_SITE_REPO_TOKEN }}
-        path: test
+        working-directory: test
         run: |
           set -eux
           exit=0
