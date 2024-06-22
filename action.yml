@@ -167,5 +167,5 @@ runs:
             echo "A PR for the branch already exists. No further action required." >> $GITHUB_STEP_SUMMARY
           fi
         else
-          echo 'Changes were pulled from the config repo but the changes match what\'s already in branch `${{ inputs.site_repo_pr_branch_base }}`. No further action required.' >> $GITHUB_STEP_SUMMARY
+          echo "Changes were pulled from the config repo but the changes match what's already in branch \`${{ inputs.site_repo_pr_branch_base }}\`. No further action required." >> $GITHUB_STEP_SUMMARY
         fi
