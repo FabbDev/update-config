@@ -41,8 +41,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: ${{ vars.TEST_CONFIG_REPO }}
-          path: test/remote
           token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
+          path: test/remote
           fetch-depth: 0
 
       - name: Setup for the test

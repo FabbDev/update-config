@@ -75,6 +75,7 @@ runs:
       with:
         repository: ${{ inputs.site_repo }}
         ref: ${{ inputs.site_repo_config_branch }}
+        token: ${{ inputs.site_repo_token }}
         path: local
       # It might error if the config-only branch doesn't exist yet.
       continue-on-error: true
@@ -83,11 +84,11 @@ runs:
       with:
         repository: ${{ inputs.config_repo }}
         ref: ${{ inputs.config_repo_branch }}
-        path: remote
         token: ${{ inputs.config_repo_token }}
         # If we failed to checkout the site repo config branch, we'll need a
         # full checkout to set it up.
         fetch-depth: ${{ steps.checkout_site_repo_config_branch.outcome != 'failure' && '1' || '0' }}
+        path: remote
 
     - name: Create the site repository config-only branch if necessary.
       if: ${{ steps.checkout_site_repo_config_branch.outcome == 'failure' }}
