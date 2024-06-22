@@ -154,7 +154,7 @@ runs:
           git config user.email '${{ inputs.committer_email }}'
           git commit -m "Export config from Prod" -m "${{ inputs.config_repo }}:$remote_head"
           git push origin HEAD
-          echo 'The config in branch `${{ inputs.site_repo_config_branch }}` has been updated.' >> $GITHUB_STEP_SUMMARY
+          echo 'Updated the config in branch `${{ inputs.site_repo_config_branch }}`.' >> $GITHUB_STEP_SUMMARY
           # Create a PR if there isn't already one.
           if [[ "$(gh pr list --head ${{ inputs.site_repo_pr_branch }} --json id)" == "[]" ]]; then 
             pr_url=$(gh pr create \
@@ -162,7 +162,7 @@ runs:
               -H ${{ inputs.site_repo_pr_branch }} \
               --title 'Merge latest config export into ${{ inputs.site_repo_pr_branch_base }}' \
               --body 'PR created automatically by auto-config-export. ${{ inputs.github_notify }}')
-            echo "Created a PR to merge the changes back into [\`${{ inputs.site_repo_pr_branch }}\`]($pr_url). " >> $GITHUB_STEP_SUMMARY
+            echo "[Created a PR]($pr_url) to merge the changes back into \`${{ inputs.site_repo_pr_branch }}\`. " >> $GITHUB_STEP_SUMMARY
           else
             echo "A PR for the branch already exists. No further action required." >> $GITHUB_STEP_SUMMARY
           fi
