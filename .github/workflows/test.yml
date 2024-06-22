@@ -73,7 +73,7 @@ jobs:
           git remote add remote-config "../remote"
           git fetch remote-config
           git checkout -b config-only remote-config/new-main
-          git push origin HEAD
+          git push origin HEAD --force
           popd
       - uses: andriokha/auto-config-export@main
         with:
