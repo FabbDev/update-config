@@ -52,6 +52,7 @@ jobs:
           git config --global user.email 'test@example.com'
 
           pushd remote
+          git branch -D new-main || true
           git checkout --orphan new-main
           git rm -rf .
           touch c d e
@@ -75,6 +76,7 @@ jobs:
           git checkout -b config-only remote-config/new-main
           git push origin HEAD --force
           popd
+
       - uses: andriokha/auto-config-export@main
         with:
           config_repo: ${{ vars.TEST_CONFIG_REPO }}
