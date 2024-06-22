@@ -49,7 +49,7 @@ jobs:
           path: test/remote
           fetch-depth: 0
 
-      - uses: test/update-config/.github/actions/test-setup
+      - uses: ./test/update-config/.github/actions/test-setup
 
       - uses: andriokha/auto-config-export@main
         with:
