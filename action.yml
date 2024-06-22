@@ -98,6 +98,8 @@ runs:
         git remote add remote-config ../remote
         git fetch remote-config
         git checkout -b ${{ inputs.site_repo_config_branch }} remote-config/${{ inputs.config_repo_branch }}
+        git remote
+        git remote -v
         git push origin HEAD
         git remote remove remote-config
         echo 'Created the branch `${{ inputs.site_repo_config_branch }}` to mirror `${{ inputs.config_repo }}:${{ inputs.config_repo_branch }}`.' >> $GITHUB_STEP_SUMMARY
