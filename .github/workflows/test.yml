@@ -79,7 +79,7 @@ jobs:
           git fetch
           git checkout staging
           if [[ "$(gh pr list --json id)" != "[]" ]]; then
-            echo "There shouldn't be a PR after running the action the first time to create the config-only branch."
+            echo "There shouldn't be a PR after running the action the first time to create the config-only branch." >> "$GITHUB_STEP_SUMMARY"
             exit=1
           fi
           
@@ -126,7 +126,7 @@ jobs:
           git fetch
           git checkout staging
           if [[ "$(gh pr list --json id)" == "[]" ]]; then
-            echo "There should be a PR created."
+            echo "There should be a PR created." >> "$GITHUB_STEP_SUMMARY"
             exit=1
           fi
           
