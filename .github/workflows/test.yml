@@ -13,7 +13,11 @@ on:
   push:
     branches:
       - main
+      - development
   pull-request:
+    branches:
+      - main
+      - development
   schedule:
     # * is a special character in YAML so you have to quote this string
     - cron:  '0 0 1 * *'
