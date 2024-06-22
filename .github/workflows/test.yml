@@ -1,0 +1,81 @@
+name: Test
+# THIS IS FOR TESTING THE ACTION: DO NOT USE IT IN YOUR DRUPAL PROJECT, USE
+# workflow-templates/update-config-branch.yml instead.
+#
+# Secrets
+# - TEST_CONFIG_REPO_TOKEN: A token with write access to the test config repo.
+# - TEST_SITE_REPO_TOKEN: A token with write access to the test site repo.
+# Variables
+# - TEST_CONFIG_REPO: The GitHub config repo for use with the test.
+# - TEST_SITE_REPO: The GitHub repo for use with the test.
+
+on:
+  push:
+    branches:
+      - main
+  pull-request:
+  schedule:
+    # * is a special character in YAML so you have to quote this string
+    - cron:  '0 0 1 * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.TEST_SITE_REPO }}
+          token: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+          path: site
+          fetch-depth: 0
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.TEST_CONFIG_REPO }}
+          path: remote
+          token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup for the test
+        run: |
+          git config --global user.name 'Test User'
+          git config --global user.email 'test@example.com'
+
+          pushd remote
+          git checkout --orphan new-main
+          git rm -rf .
+          touch c d e
+          git add .
+          git commit -m "Add initial mock config"
+          git push origin HEAD:main --force
+          popd
+          
+          pushd site
+          git checkout --orphan new-staging
+          git rm -rf .
+          mkdir -p a z config/sync 
+          touch {a,z}/.gitkeep b config/sync/{c,d,e}
+          git config user.name 'Test User'
+          git config user.email 'test@example.com'
+          git add .
+          git commit -m "Add mock Drupal site"
+          git push origin HEAD:staging --force
+          git remote add remote-config "$GITHUB_WORKSPACE/remote"
+          git fetch remote-config
+          git checkout -b config-only remote-config/new-main
+          git push origin HEAD
+          popd
+          
+          rm -rf site remote
+
+      - uses: andriokha/auto-config-export@main
+        with:
+          config_repo: ${{ vars.TEST_CONFIG_REPO }}
+          config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
+          site_repo: ${{ vars.TEST_SITE_REPO }}
+          site_repo_token: ${{ secrets.TEST_SITE_REPO_TOKEN }}

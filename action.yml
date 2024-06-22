@@ -25,6 +25,16 @@ inputs:
     type: string
     required: true
     default: main
+  site_repo:
+    description: The GitHub Drupal site repo, eg. BrooksDigital/Abc
+    type: string
+    required: true
+    default: ${{ github.repository }}
+  site_repo_token:
+    description: The GitHub Drupal site repo token with access to write contents and create PRs.
+    type: string
+    required: true
+    default: ${{ github.token }}
   site_repo_config_branch:
     description: The branch on the site repository that mirrors the config repository.
     type: string
