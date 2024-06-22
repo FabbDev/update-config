@@ -45,40 +45,8 @@ jobs:
           path: test/remote
           fetch-depth: 0
 
-      - name: Setup for the test
+      - uses: ./.github/actions/test-setup
         working-directory: test
-        run: |
-          git config --global user.name 'Test User'
-          git config --global user.email 'test@example.com'
-
-          pushd remote
-          git branch -D new-main || true
-          git checkout --orphan new-main
-          git rm -rf .
-          touch c d e
-          git add .
-          git commit -m "Add initial mock config"
-          git push origin HEAD:main --force
-          echo "CONFIG_HASH: $(git rev-parse HEAD)"
-          popd
-          
-          pushd site
-          git checkout --orphan new-staging
-          git rm -rf .
-          mkdir -p a z config/sync 
-          touch {a,z}/.gitkeep b config/sync/{c,d,e}
-          git config user.name 'Test User'
-          git config user.email 'test@example.com'
-          git add .
-          git commit -m "Add mock Drupal site"
-          git push origin HEAD:staging --force
-          git push -d origin config-only || true
-          #git remote add remote-config "../remote"
-          #git fetch remote-config
-          #git checkout -b config-only remote-config/new-main
-          
-          git push origin HEAD --force
-          popd
 
       - uses: andriokha/auto-config-export@main
         with:
@@ -95,7 +63,7 @@ jobs:
           cd test/site
           git fetch
           git checkout staging
-          if [[ "$(gh pr list --json id)" == "[]" ]]; then
+          if [[ "$(gh pr list --json id)" != "[]" ]]; then
             exit 1
           fi
         
