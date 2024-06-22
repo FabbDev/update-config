@@ -159,7 +159,7 @@ runs:
               -H ${{ inputs.site_repo_pr_branch }} \
               --title 'Merge latest config export into ${{ inputs.site_repo_pr_branch_base }}' \
               --body 'PR created automatically by auto-config-export. ${{ inputs.github_notify }}'
-            echo "Created a PR to merge the changes back into ${{ inputs.site_repo_pr_branch. " >> $GITHUB_STEP_SUMMARY
+            echo "Created a PR to merge the changes back into ${{ inputs.site_repo_pr_branch }}. " >> $GITHUB_STEP_SUMMARY
           else
             echo "A PR for the branch already exists. No further action required." >> $GITHUB_STEP_SUMMARY
           fi
