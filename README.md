@@ -49,7 +49,11 @@ and creating a PR with the changes.
    1. Check [`update-config-branch.yml`] for required permissions, secrets and
       variables to set up.
    2. Add [`update-config-branch.yml`] to the Drupal site repo's `/.github`
-      directory.
+      directory. It's configured to check for changes every 30 minutes (though
+      GitHub doesn't guarantee it will run that frequently). It will create a
+      branch `config-only` that mirrors the `main` branch of the config repo and
+      keep it up-to-date. When there are changes a PR is created against
+      `staging`.
 
 [`check-and-push-config.sh`]: scripts/check-and-push-config.sh
 [`update-config-branch.yml`]: workflow-templates/update-config-branch.yml

@@ -89,12 +89,16 @@ runs:
         git checkout -b ${{ inputs.site_repo_config_branch }} remote-config/${{ inputs.config_repo_branch }}
         git push origin HEAD
         git remote remove remote-config
+        echo "Created the branch ${{ inputs.site_repo_config_branch }} to mirror ${{ inputs.config_repo }}:${{ inputs.config_repo_branch }}." >> $GITHUB_STEP_SUMMARY
 
     - name: Read HEAD from new branches
       shell: sh
       run: |
         echo "local_head=$(git -C local rev-parse HEAD)" >> "$GITHUB_ENV"
         echo "remote_head=$(git -C remote rev-parse HEAD)" >> "$GITHUB_ENV"
+        if [[ $local_head == $remote_head ]]; then
+          echo "The local config branch is up-to-date with the remote. No further action required." >> $GITHUB_STEP_SUMMARY
+        fi
 
     - uses: actions/checkout@v4
       if: ${{ env.local_head != env.remote_head }}
@@ -147,6 +151,7 @@ runs:
           git config user.email '${{ inputs.committer_email }}'
           git commit -m "Export config from Prod" -m "${{ inputs.config_repo }}:$remote_head"
           git push origin HEAD
+          echo "The config in branch ${{ inputs.site_repo_config_branch }} has been updated." >> $GITHUB_STEP_SUMMARY
           # Create a PR if there isn't already one.
           if [[ "$(gh pr list --head ${{ inputs.site_repo_pr_branch }} --json id)" == "[]" ]]; then 
             gh pr create \
@@ -154,5 +159,10 @@ runs:
               -H ${{ inputs.site_repo_pr_branch }} \
               --title 'Merge latest config export into ${{ inputs.site_repo_pr_branch_base }}' \
               --body 'PR created automatically by auto-config-export. ${{ inputs.github_notify }}'
+            echo "Created a PR to merge the changes back into ${{ inputs.site_repo_pr_branch. " >> $GITHUB_STEP_SUMMARY
+          else
+            echo "A PR for the branch already exists. No further action required." >> $GITHUB_STEP_SUMMARY
           fi
+        else
+          echo "Changes were pulled from the config repo but the changes match what's already in branch ${{ inputs.site_repo_pr_branch_base }}. No further action required." >> $GITHUB_STEP_SUMMARY
         fi

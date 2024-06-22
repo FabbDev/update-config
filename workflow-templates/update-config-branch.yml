@@ -11,6 +11,8 @@ name: Check for config updates
 # - CONFIG_REPO_TOKEN: The config repo token with content read access.
 # Variables:
 # - CONFIG_REPO: The GitHub config repo, eg. BrooksDigital/AbcConfig.
+# - SITE_REPO_PR_BRANCH_BASE: (optional) The branch from which the config topic
+#   branch will be made for the PR; defaults to 'staging'.
 # - GITHUB_NOTIFY: (optional) A space-separated list of github users including
 #   '@' to ping on a new PR, eg. '@andy @becca'.
 
@@ -18,7 +20,7 @@ on:
   workflow_dispatch:
   schedule:
     # * is a special character in YAML so you have to quote this string
-    - cron:  '*/5 * * * *'
+    - cron:  '*/30 * * * *'
 
 concurrency:
   group: update-config-branch
@@ -35,3 +37,4 @@ jobs:
           config_repo: ${{ vars.CONFIG_REPO }}
           config_repo_token: ${{ secrets.CONFIG_REPO_TOKEN }}
           github_notify: ${{ vars.GITHUB_NOTIFY }}
+          site_repo_pr_branch_base: ${{ vars.SITE_REPO_PR_BRANCH_BASE || 'staging' }}
