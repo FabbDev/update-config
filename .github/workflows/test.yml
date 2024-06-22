@@ -47,6 +47,8 @@ jobs:
 
       - name: Setup for the test
         run: |
+          mkdir test
+          cd test
           git config --global user.name 'Test User'
           git config --global user.email 'test@example.com'
 
@@ -74,12 +76,24 @@ jobs:
           git checkout -b config-only remote-config/new-main
           git push origin HEAD
           popd
-          
-          rm -rf site remote
-
       - uses: andriokha/auto-config-export@main
         with:
           config_repo: ${{ vars.TEST_CONFIG_REPO }}
           config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
           site_repo: ${{ vars.TEST_SITE_REPO }}
           site_repo_token: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+
+      - name: Assert the state after running the action
+        env:
+          GH_TOKEN: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+        run: |
+          set -eux
+          cd test/site
+          git fetch
+          git checkout staging
+          if [[ "$(gh pr list --json id)" == "[]" ]]; then
+            exit 1
+          fi
+        
+
+        # TEARDOWN DELETE NAY PRS
