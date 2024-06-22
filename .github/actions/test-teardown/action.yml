@@ -7,6 +7,5 @@ runs:
   steps:
     - name: Setup for test
       shell: bash
-      working-directory: test
       run: |
         rm -rf remote local
