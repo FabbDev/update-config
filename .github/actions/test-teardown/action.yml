@@ -8,9 +8,10 @@ runs:
     - name: Tear down for test
       shell: bash
       run: |
+        # Tear down for test
         tmp=$(mktemp -d)
         mv test/update-config "$tmp"
-        rm -rf * .*
+        rm -rf * .* || true
         mkdir test
         mv "$tmp/update-config" test
         rm -rf "$tmp"
