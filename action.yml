@@ -94,8 +94,10 @@ runs:
     - name: Read HEAD from new branches
       shell: sh
       run: |
-        echo "local_head=$(git -C local rev-parse HEAD)" >> "$GITHUB_ENV"
-        echo "remote_head=$(git -C remote rev-parse HEAD)" >> "$GITHUB_ENV"
+        local_head=$(git -C local rev-parse HEAD)
+        remote_head=$(git -C remote rev-parse HEAD)
+        echo "local_head=$local_head" >> "$GITHUB_ENV"
+        echo "remote_head=$remote_head" >> "$GITHUB_ENV"
         if [[ $local_head == $remote_head ]]; then
           echo 'The local config branch `${{ inputs.site_repo_config_branch }}` is up-to-date with the remote. No further action required.' >> $GITHUB_STEP_SUMMARY
         fi
