@@ -1,0 +1,12 @@
+name: Tear down for test
+description: Makes any necessary changes to clean up after running a test
+# TODO: Delete any open PRs on the site repo.
+
+runs:
+  using: composite
+  steps:
+    - name: Setup for test
+      shell: bash
+      working-directory: test
+      run: |
+        rm -rf remote local

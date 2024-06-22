@@ -85,6 +85,8 @@ jobs:
           fi
           
           exit $exit
+          
+      - uses: ./test/update-config/.github/actions/test-teardown
 
       # TEAR DOWN AT LEAST CLEAR OUT NON-TEST DIR
       # CAN I USE A TEMP DIR?
@@ -137,3 +139,4 @@ jobs:
           exit $exit
 
         # TEARDOWN DELETE NAY PRS
+      - uses: ./test/update-config/.github/actions/test-teardown

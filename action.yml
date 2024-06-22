@@ -140,11 +140,14 @@ runs:
       working-directory: local
       shell: sh
       run: |
+        # Update the local config-only branch from the remote
         set -eu
+        echo "::group::Update the local config-only branch from the remote"
         git remote add remote-config ../remote
         git fetch remote-config
         git reset --hard remote-config/${{ inputs.config_repo_branch }}
         git push origin HEAD
+        echo "::endgroup::"
 
     - name: Create a site branch with the config and open a PR
       if: ${{ env.local_head != env.remote_head }}
