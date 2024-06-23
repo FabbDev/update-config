@@ -148,6 +148,7 @@ runs:
         git remote add remote-config ../remote
         git fetch remote-config
         git reset --hard remote-config/${{ inputs.config_repo_branch }}
+        git remote -v
         echo 'config-only:'
         git log
         echo 'origin/config-only:'

@@ -97,6 +97,7 @@ jobs:
           git checkout -b config-only remote-config/main^
           git rev-parse HEAD
           git push origin HEAD
+          git remote -v
           sleep 10
 
       - uses: andriokha/auto-config-export@main
