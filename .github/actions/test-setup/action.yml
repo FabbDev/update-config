@@ -103,6 +103,7 @@ runs:
         git add .
         git commit -m "Add mock Drupal site"
         git push origin HEAD:${{ inputs.test_site_repo_pr_branch_base }} --force
+        ls config/sync/* # REMOVE ME!
         cat config/sync/* # REMOVE ME!
         git checkout ${{ inputs.test_site_repo_pr_branch_base }}
         git reset --hard origin/${{ inputs.test_site_repo_pr_branch_base }}
