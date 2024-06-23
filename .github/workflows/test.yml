@@ -71,7 +71,11 @@ jobs:
 
       - uses: ./test/update-config/.github/actions/test-assertions
         with:
+          test_config_repo: ${{ env.test_config_repo }}
           test_config_repo_branch: ${{ env.test_config_repo_branch }}
+          test_config_repo_token: ${{ env.test_config_repo_token }}
+          test_site_repo: ${{ env.test_site_repo }}
+          test_site_repo_token: ${{ env.test_site_repo_token }}
           test_site_repo_config_branch: ${{ env.test_site_repo_config_branch }}
 
       - name: Assert the state after running the action
@@ -155,7 +159,11 @@ jobs:
 
       - uses: ./test/update-config/.github/actions/test-assertions
         with:
+          test_config_repo: ${{ env.test_config_repo }}
           test_config_repo_branch: ${{ env.test_config_repo_branch }}
+          test_config_repo_token: ${{ env.test_config_repo_token }}
+          test_site_repo: ${{ env.test_site_repo }}
+          test_site_repo_token: ${{ env.test_site_repo_token }}
           test_site_repo_config_branch: ${{ env.test_site_repo_config_branch }}
 
       - name: Assert the state after running the action
@@ -192,7 +200,7 @@ jobs:
           branch_prefix: "${{ github.job }}-"
 
   test-existing-pr:
-    if: false
+#    if: false
     name: Test updating an existing PR.
     runs-on: ubuntu-latest
     env:
@@ -264,6 +272,15 @@ jobs:
           site_repo_config_branch: ${{ env.test_site_repo_config_branch }}
           site_repo_pr_branch: ${{ env.test_site_repo_pr_branch }}
           site_repo_pr_branch_base: ${{ env.test_site_repo_pr_branch_base }}
+
+      - uses: ./test/update-config/.github/actions/test-assertions
+        with:
+          test_config_repo: ${{ env.test_config_repo }}
+          test_config_repo_branch: ${{ env.test_config_repo_branch }}
+          test_config_repo_token: ${{ env.test_config_repo_token }}
+          test_site_repo: ${{ env.test_site_repo }}
+          test_site_repo_token: ${{ env.test_site_repo_token }}
+          test_site_repo_config_branch: ${{ env.test_site_repo_config_branch }}
 
       - name: Assert the state after running the action
         env:
