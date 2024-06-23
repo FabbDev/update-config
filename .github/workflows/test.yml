@@ -33,6 +33,12 @@ jobs:
     runs-on: ubuntu-latest
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}-job
+    env:
+      test_config_repo_branch: "${{ github.job }}-main"
+      test_site_repo_config_branch: "${{ github.job }}-config-only"
+      test_site_repo_pr_branch: "${{ github.job }}-automatic-config-export"
+      test_site_repo_pr_branch_base: "${{ github.job }}-staging"
+
     steps:
 
       - uses: actions/checkout@v4
@@ -43,15 +49,23 @@ jobs:
         with:
           test_config_repo: ${{ vars.TEST_CONFIG_REPO }}
           test_config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
+          test_config_repo_branch: ${{ env.test_config_repo_branch }}
           test_site_repo: ${{ vars.TEST_SITE_REPO }}
           test_site_repo_token: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+          test_site_repo_config_branch: ${{ env.test_site_repo_config_branch }}
+          test_site_repo_pr_branch: ${{ env.test_site_repo_pr_branch }}
+          test_site_repo_pr_branch_base: ${{ env.test_site_repo_pr_branch_base }}
 
       - uses: andriokha/auto-config-export@main
         with:
           config_repo: ${{ vars.TEST_CONFIG_REPO }}
           config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
+          config_repo_branch: ${{ env.test_config_repo_branch }}
           site_repo: ${{ vars.TEST_SITE_REPO }}
           site_repo_token: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+          site_repo_config_branch: ${{ env.test_site_repo_config_branch }}
+          site_repo_pr_branch: ${{ env.test_site_repo_pr_branch }}
+          site_repo_pr_branch_base: ${{ env.test_site_repo_pr_branch_base }}
 
       - name: Assert the state after running the action
         env:
@@ -61,19 +75,18 @@ jobs:
           # Assert the state after running the action
           set -eux
           exit=0
-          cat "$GITHUB_STEP_SUMMARY"
           
-          git -C site fetch origin config-only
-          git -C remote fetch origin main
+          git -C site fetch origin ${{ env.test_site_repo_config_branch }}
+          git -C remote fetch origin ${{ env.test_config_repo_branch }}
           
-          if [[ "$(git -C remote rev-parse origin/main)" != "$(git -C site rev-parse origin/config-only)" ]]; then
+          if [[ "$(git -C remote rev-parse origin/${{ env.test_config_repo_branch }})" != "$(git -C site rev-parse origin/${{ env.test_site_repo_config_branch }})" ]]; then
             echo "The Drupal site repo's config-only branch wasn't in sync with the config repo's main branch." >> "$GITHUB_STEP_SUMMARY"
             exit=1
           fi
           
           cd site
           git fetch
-          git checkout staging
+          git checkout ${{ env.test_site_repo_pr_branch_base }}
           if [[ "$(gh pr list --json id)" != "[]" ]]; then
             echo "There shouldn't be a PR after running the action the first time to create the config-only branch." >> "$GITHUB_STEP_SUMMARY"
             exit=1
@@ -83,12 +96,19 @@ jobs:
           
       - uses: ./test/update-config/.github/actions/test-teardown
         if: ${{ always() }}
+        with:
+          branch_prefix: "${{ github.job }}-"
 
   test-2:
     name: Test updating the mirrored config branch and creating a PR from it.
     runs-on: ubuntu-latest
-    needs: [test-1]
-    if: ${{ always() }}
+    env:
+      test_config_repo_branch: "${{ github.job }}-main"
+      test_site_repo_config_branch: "${{ github.job }}-config-only"
+      test_site_repo_pr_branch: "${{ github.job }}-automatic-config-export"
+      test_site_repo_pr_branch_base: "${{ github.job }}-staging"
+#    needs: [test-1]
+#    if: ${{ always() }}
     steps:
 
       - uses: actions/checkout@v4
@@ -99,8 +119,12 @@ jobs:
         with:
           test_config_repo: ${{ vars.TEST_CONFIG_REPO }}
           test_config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
+          test_config_repo_branch: ${{ env.test_config_repo_branch }}
           test_site_repo: ${{ vars.TEST_SITE_REPO }}
           test_site_repo_token: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+          test_site_repo_config_branch: ${{ env.test_site_repo_config_branch }}
+          test_site_repo_pr_branch: ${{ env.test_site_repo_pr_branch }}
+          test_site_repo_pr_branch_base: ${{ env.test_site_repo_pr_branch_base }}
 
       # TODO FACTOR OUT COMMON ASSERTIONS, POST TEST NORMALIZATION AND TEAR DOWN.
 
@@ -110,7 +134,7 @@ jobs:
           cd site
           git remote add remote-config ../remote
           git fetch remote-config
-          git checkout -b config-only remote-config/main^
+          git checkout -b ${{ env.test_site_repo_config_branch }} remote-config/${{ env.test_config_repo_branch }}^
           git rev-parse HEAD
           git push origin HEAD
           git remote -v
@@ -119,8 +143,12 @@ jobs:
         with:
           config_repo: ${{ vars.TEST_CONFIG_REPO }}
           config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
+          config_repo_branch: ${{ env.test_config_repo_branch }}
           site_repo: ${{ vars.TEST_SITE_REPO }}
           site_repo_token: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+          site_repo_config_branch: ${{ env.test_site_repo_config_branch }}
+          site_repo_pr_branch: ${{ env.test_site_repo_pr_branch }}
+          site_repo_pr_branch_base: ${{ env.test_site_repo_pr_branch_base }}
 
       - name: Assert the state after running the action
         env:
@@ -132,27 +160,28 @@ jobs:
           exit=0
           cat "$GITHUB_STEP_SUMMARY"
           
-          git -C site fetch origin config-only
-          git -C remote fetch origin main
+          git -C site fetch origin ${{ env.test_site_repo_config_branch }}
+          git -C remote fetch origin ${{ env.test_config_repo_branch }}
           
-          if [[ "$(git -C remote rev-parse origin/main)" != "$(git -C site rev-parse origin/config-only)" ]]; then
+          if [[ "$(git -C remote rev-parse origin/${{ env.test_config_repo_branch }})" != "$(git -C site rev-parse origin/${{ env.test_site_repo_config_branch }})" ]]; then
             echo "TEST FAILURE: The Drupal site repo's config-only branch wasn't in sync with the config repo's main branch." >> "$GITHUB_STEP_SUMMARY"
             exit=1
           fi
           
           cd site
           git fetch
-          git checkout staging
-          if [[ "$(gh pr list -H automatic-config-export --json id)" == "[]" ]]; then
+          git checkout ${{ env.test_site_repo_pr_branch_base }}
+          if [[ "$(gh pr list -H ${{ env.test_site_repo_pr_branch }} --json id)" == "[]" ]]; then
             echo "TEST FAILURE: There should be a PR created." >> "$GITHUB_STEP_SUMMARY"
             exit=1
           fi
           
           exit $exit
 
-        # TEARDOWN DELETE NAY PRS
       - uses: ./test/update-config/.github/actions/test-teardown
         if: ${{ always() }}
+        with:
+          branch_prefix: "${{ github.job }}-"
 
       - name: Test-specific tear-down
         if: ${{ always() }}
@@ -160,15 +189,15 @@ jobs:
           GH_TOKEN: ${{ secrets.TEST_SITE_REPO_TOKEN }}
         run: |
           # Test-specific tear-down
-          if [[ "$(gh pr list -H automatic-config-export --json id)" != "[]" ]]; then
-            gh pr close automatic-config-export
+          if [[ "$(gh pr list -H ${{ env.test_site_repo_pr_branch }} --json id)" != "[]" ]]; then
+            gh pr close ${{ env.test_site_repo_pr_branch }}
           fi
 
   test-config-update-and-pr-test:
     name: Test what happens with a third job
     runs-on: ubuntu-latest
-    needs: [test-1, test-2]
-    if: ${{ always() }}
+#    needs: [test-1, test-2]
+#    if: ${{ always() }}
     steps:
       - name: Test
         run: |

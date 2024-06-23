@@ -1,6 +1,11 @@
 name: Tear down for test
 description: Makes any necessary changes to clean up after running a test
-# TODO: Delete any open PRs on the site repo.
+
+inputs:
+  branch_prefix:
+    description: The prefix used for test branches.
+    type: string
+    required: true
 
 runs:
   using: composite
@@ -9,7 +14,7 @@ runs:
       shell: bash
       run: |
         # Tear down for test
-        if git show-branch remotes/origin/config-only &> /dev/null; then
-          git push -d origin config-only
-        fi
-#        if [[ "$(gh pr list -H automatic-config-export --json id)" !=
+        set -eux
+        git for-each-ref "refs/remotes/origin/${{ inputs.branch_prefix }}*" --format '%(refname:short)' | while read refname;
+          git push -d origin ${refname//'origin/'/}
+        done

@@ -3,6 +3,18 @@ description: Prepares test repos for automated testing.
 # TODO: Delete any open PRs on the site repo.
 
 inputs:
+  test_config_repo:
+    description: The GitHub config repo for use with the test.
+    type: string
+    required: true
+  test_config_repo_token:
+    description: A token with write access to the test config repo.
+    type: string
+    required: true
+  test_config_repo_branch:
+    description: The main branch on the config repository.
+    type: string
+    required: true
   test_site_repo:
     description: The GitHub site repo for use with the test.
     type: string
@@ -11,12 +23,16 @@ inputs:
     description: A token with write access to the test site repo.
     type: string
     required: true
-  test_config_repo:
-    description: The GitHub config repo for use with the test.
+  test_site_repo_config_branch:
+    description: The branch on the site repository that mirrors the config repository.
     type: string
     required: true
-  test_config_repo_token:
-    description: A token with write access to the test config repo.
+  test_site_repo_pr_branch:
+    description: The name of the topic branch to create on the site repository with config changes.
+    type: string
+    required: true
+  test_site_repo_pr_branch_base:
+    description: The branch on the site repository from which to create the PR branch.
     type: string
     required: true
 
@@ -47,7 +63,7 @@ runs:
         git config --global user.email 'test@example.com'
 
         pushd remote
-        git checkout --orphan new-main
+        git checkout --orphan ${{ inputs.config_repo_branch }}-new
         git rm -rf .
         touch c d e
         git add .
@@ -55,14 +71,14 @@ runs:
         echo modified > c
         git add c
         git commit -m "Updated c"
-        git push origin HEAD:main --force
-        git checkout main
-        git reset --hard new-main
-        git branch -d new-main
+        git push origin HEAD:${{ inputs.config_repo_branch }} --force
+        git checkout ${{ inputs.config_repo_branch }}
+        git reset --hard origin/${{ inputs.config_repo_branch }}
+        # git branch -d new-main
         popd
 
         pushd site
-        git checkout --orphan new-staging
+        git checkout --orphan ${{ inputs.site_repo_pr_branch_base }}-new
         git rm -rf .
         mkdir -p a z config/sync 
         touch {a,z}/.gitkeep b config/sync/{c,d,e}
@@ -70,14 +86,19 @@ runs:
         git config user.email 'test@example.com'
         git add .
         git commit -m "Add mock Drupal site"
-        git push origin HEAD:staging --force
-        git checkout staging
-        git reset --hard new-staging
-        git branch -d new-staging
+        git push origin HEAD:${{ inputs.site_repo_pr_branch_base }} --force
+        git checkout ${{ inputs.site_repo_pr_branch_base }}
+        git reset --hard origin/${{ inputs.site_repo_pr_branch_base }}
+        #git branch -d new-${{ inputs.site_repo_pr_branch_base }}
         
-        if git show-branch remotes/origin/config-only &> /dev/null; then
-          git push -d origin config-only
-        fi
+        # THESE MIGHT NOT BE NECESSARY HERE, IT'S JUST DEFENSIVE
+        #if git show-branch remotes/origin/${{ inputs.site_repo_config_branch }} &> /dev/null; then
+        #  git push -d origin ${{ inputs.site_repo_config_branch }}
+        #fi
+        # IF THE FOLLOWING'S REMOVED, LOOKS LIKE WE DON'T NEED TO KNOW THE PR BRANCH FOR THIS ACTION
+        #if git show-branch remotes/origin/${{ inputs.site_repo_pr_branch }} &> /dev/null; then
+        #  git push -d origin ${{ inputs.site_repo_pr_branch }}
+        #fi
 
-        git push origin HEAD --force
+        #git push origin HEAD --force
         popd
