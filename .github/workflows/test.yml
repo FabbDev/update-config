@@ -198,6 +198,7 @@ jobs:
         if: ${{ always() }}
         env:
           GH_TOKEN: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+        working-directory: test/site
         run: |
           # Test-specific tear-down
           if [[ "$(gh pr list -H ${{ env.test_site_repo_pr_branch }} --json id)" != "[]" ]]; then

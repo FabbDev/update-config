@@ -12,10 +12,10 @@ runs:
   steps:
     - name: Tear down for test
       shell: bash
+      working-directory: test/site
       run: |
         # Tear down for test
         set -eux
-        cd test/site
         git for-each-ref "refs/remotes/origin/${{ inputs.branch_prefix }}*" --format '%(refname:short)' | while read refname
           do git push -d origin ${refname//'origin/'/}
         done
