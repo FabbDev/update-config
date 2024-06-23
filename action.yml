@@ -81,7 +81,6 @@ runs:
       continue-on-error: true
 
     - uses: actions/checkout@v4
-      name: Does a name work here
       if: ${{ steps.checkout_site_repo_config_branch.outcome == 'failure' }}
       with:
         repository: ${{ inputs.site_repo }}
