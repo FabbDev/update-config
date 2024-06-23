@@ -91,6 +91,11 @@ runs:
         git reset --hard origin/${{ inputs.test_site_repo_pr_branch_base }}
         #git branch -d new-${{ inputs.test_site_repo_pr_branch_base }}
         
+        # DO I WANT THESE HERE?
+        git for-each-ref "refs/remotes/origin/${{ inputs.branch_prefix }}*" --format '%(refname:short)' | while read refname
+          do git push -d origin ${refname//'origin/'/}
+        done
+        
         # THESE MIGHT NOT BE NECESSARY HERE, IT'S JUST DEFENSIVE
         #if git show-branch remotes/origin/${{ inputs.test_site_repo_config_branch }} &> /dev/null; then
         #  git push -d origin ${{ inputs.test_site_repo_config_branch }}
