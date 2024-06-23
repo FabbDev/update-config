@@ -224,6 +224,8 @@ jobs:
       # TODO FACTOR OUT COMMON ASSERTIONS, POST TEST NORMALIZATION AND TEAR DOWN.
 
       - name: 'Test setup for testing updating an existing PR'
+        env:
+          GH_TOKEN: ${{ secrets.TEST_SITE_REPO_TOKEN }}
         working-directory: test
   # TODO: See if I'm only using git config.name etc. as few times as pos
         run: |
