@@ -28,7 +28,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test-initial-setup:
+  test-1:
     name: Test mirroring the config repo to the site repo (ie initial setup)
     runs-on: ubuntu-latest
     concurrency:
@@ -84,11 +84,11 @@ jobs:
       - uses: ./test/update-config/.github/actions/test-teardown
         if: ${{ always() }}
 
-  test-config-update-and-pr:
+  test-2:
     name: Test updating the mirrored config branch and creating a PR from it.
     runs-on: ubuntu-latest
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-job
+    needs: [test-1]
+    if: ${{ always() }}
     steps:
 
       - uses: actions/checkout@v4
@@ -167,8 +167,8 @@ jobs:
   test-config-update-and-pr-test:
     name: Test what happens with a third job
     runs-on: ubuntu-latest
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-job
+    needs: [test-1, test-2]
+    if: ${{ always() }}
     steps:
       - name: Test
         run: |
