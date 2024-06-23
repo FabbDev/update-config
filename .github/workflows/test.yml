@@ -137,13 +137,15 @@ jobs:
           git remote add remote-config ../remote
           git fetch remote-config
           git checkout -b ${{ env.test_site_repo_config_branch }} remote-config/${{ env.test_config_repo_branch }}^
-          git rev-parse HEAD
+          git rev-parse HEAD # REMOVE ME!
+          tmp_dir=$(mktemp -d)
+          cp * "$tmp_dir"
           git push origin HEAD
           git remote -v # REMOVE ME!
           
           git checkout ${{ env.test_site_repo_pr_branch_base }}
           rm config/sync/*
-          cp -r ../remote/* config/sync
+          cp -r "$tmp_dir"/* config/sync
           git add .
           git commit --amend -m "Update"
           git push origin HEAD --force
