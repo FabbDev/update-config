@@ -253,7 +253,7 @@ jobs:
           git commit -m "Update"
           git push origin HEAD
           
-          gh pr create --head ${{ env.test_site_repo_pr_branch }} --base ${{ env.test_site_repo_pr_branch_base }}
+          gh pr create --base ${{ env.test_site_repo_pr_branch_base }} --title "Test PR" --body "Test PR"
           
           rm -rf "$tmp_dir"
 
