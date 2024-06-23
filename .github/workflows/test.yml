@@ -163,13 +163,28 @@ jobs:
           GH_TOKEN: ${{ secrets.TEST_SITE_REPO_TOKEN }}
         working-directory: test/site
         run: |
-          # Assert the state after running the action
           set -eu
-          git checkout ${{ env.test_site_repo_pr_branch_base }}
-          if [[ "$(gh pr list -H ${{ env.test_site_repo_pr_branch }} --json id)" == "[]" ]]; then
+          exit=0
+          tmp_dir=$(mktemp -d)
+          git checkout ${{ env.test_site_repo_config_branch }}
+          cp * "$tmp_dir"
+          
+          git checkout ${{ env.test_site_repo_pr_branch }}
+          if [[ "$(gh pr list --json id)" == "[]" ]]; then
             echo "**TEST FAILURE:** There should be a PR created." >> "$GITHUB_STEP_SUMMARY"
-            exit 1
+            exit=1
           fi
+          
+          rm config/sync/*
+          mv "$tmp_dir"/* config/sync
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "**TEST FAILURE:** The PR branch config should match the config repo branch." >> "$GITHUB_STEP_SUMMARY"
+            exit=1          
+          fi
+          
+          rm -rf "$tmp_dir"
+          
+          exit $exit
 
       - uses: ./test/update-config/.github/actions/test-teardown
         if: ${{ always() }}
