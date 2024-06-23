@@ -193,12 +193,3 @@ jobs:
             gh pr close ${{ env.test_site_repo_pr_branch }}
           fi
 
-  test-config-update-and-pr-test:
-    name: Test what happens with a third job
-    runs-on: ubuntu-latest
-#    needs: [test-1, test-2]
-#    if: ${{ always() }}
-    steps:
-      - name: Test
-        run: |
-          echo testing
