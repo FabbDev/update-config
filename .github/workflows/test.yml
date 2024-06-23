@@ -31,6 +31,8 @@ jobs:
   test-initial-setup:
     name: Test mirroring the config repo to the site repo (ie initial setup)
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
     steps:
 
       - uses: actions/checkout@v4
@@ -85,6 +87,8 @@ jobs:
   test-config-update-and-pr:
     name: Test updating the mirrored config branch and creating a PR from it.
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
     steps:
 
       - uses: actions/checkout@v4
