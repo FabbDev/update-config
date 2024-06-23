@@ -237,7 +237,7 @@ jobs:
           
           # Set up an existing PR.
           git checkout ${{ env.test_site_repo_pr_branch_base }}
-          git rm config/sync/*
+          rm config/sync/*
           touch config/sync/test-existing-pr
           git add config/sync
           git commit --amend -m "Initial commmit"
