@@ -170,7 +170,7 @@ runs:
       if: ${{ env.local_head != env.remote_head }}
       working-directory: local
       env:
-        GH_TOKEN: ${{ site_repo_token }}
+        GH_TOKEN: ${{ inputs.site_repo_token }}
       shell: bash
       run: |
         # Create a site branch with the config and open a PR
