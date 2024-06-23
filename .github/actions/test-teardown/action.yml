@@ -15,6 +15,6 @@ runs:
       run: |
         # Tear down for test
         set -eux
-        git for-each-ref "refs/remotes/origin/${{ inputs.branch_prefix }}*" --format '%(refname:short)' | while read refname;
-          git push -d origin ${refname//'origin/'/}
+        git for-each-ref "refs/remotes/origin/${{ inputs.branch_prefix }}*" --format '%(refname:short)' | while read refname
+          do git push -d origin ${refname//'origin/'/}
         done
