@@ -176,6 +176,7 @@ runs:
         # Create a site branch with the config and open a PR
         set -eux
         source_branch=${{ inputs.site_repo_pr_branch }}
+        git fetch origin # REMOVE ME!!!!!!!!!
         if ! git show-branch remotes/origin/${{ inputs.site_repo_pr_branch }} &> /dev/null; then
           git branch ${{ inputs.site_repo_pr_branch }} origin/${{ inputs.site_repo_pr_branch_base }}
           source_branch=${{ inputs.site_repo_pr_branch_base }}
