@@ -9,6 +9,12 @@ runs:
       shell: bash
       run: |
         # Tear down for test
+        pushd local
+        if git show-branch remotes/origin/config-only &> /dev/null; then
+          git pushd -d origin config-only
+        fi
+        popd
+        
         tmp=$(mktemp -d)
         mv test/update-config "$tmp"
         rm -rf * .* || true
