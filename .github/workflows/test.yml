@@ -193,7 +193,7 @@ jobs:
         with:
           branch_prefix: "${{ github.job }}-"
 
-  test:
+  test-existing-pr:
     name: Test updating an existing PR.
     runs-on: ubuntu-latest
     env:
@@ -225,7 +225,7 @@ jobs:
         working-directory: test
   # TODO: See if I'm only using git config.name etc. as few times as pos
         run: |
-          set -eu
+          set -eux
           cd site
           # Ensure the site repo config branch is behind the config repo.
           git remote add remote-config ../remote
@@ -238,6 +238,8 @@ jobs:
           # Set up an existing PR.
           git checkout ${{ env.test_site_repo_pr_branch_base }}
           git rm config/sync/*
+          touch config/sync/test-existing-pr
+          git add config/sync
           git commit --amend -m "Initial commmit"
           git push origin HEAD --force
           
