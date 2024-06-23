@@ -77,28 +77,23 @@ jobs:
       - name: Assert the state after running the action
         env:
           GH_TOKEN: ${{ secrets.TEST_SITE_REPO_TOKEN }}
-        working-directory: test
+        working-directory: test/site
         run: |
           # Assert the state after running the action
           set -eu
-          exit=0
-          
-          cd site
           git checkout ${{ env.test_site_repo_pr_branch_base }}
           if [[ "$(gh pr list --json id)" != "[]" ]]; then
-            echo "There shouldn't be a PR after running the action the first time to create the config-only branch." >> "$GITHUB_STEP_SUMMARY"
-            exit=1
+            echo "**TEST FAILURE:** There shouldn't be a PR after running the action the first time to create the config-only branch." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
           fi
-          
-          exit $exit
-          
+
       - uses: ./test/update-config/.github/actions/test-teardown
         if: ${{ always() }}
         with:
           branch_prefix: "${{ github.job }}-"
 
   test-create-pr:
-    if: false
+#    if: false
     name: Test updating the mirrored config branch and creating a PR from it.
     runs-on: ubuntu-latest
     env:
@@ -158,32 +153,23 @@ jobs:
           site_repo_pr_branch: ${{ env.test_site_repo_pr_branch }}
           site_repo_pr_branch_base: ${{ env.test_site_repo_pr_branch_base }}
 
+      - uses: ./test/update-config/.github/actions/test-assertions
+        with:
+          test_config_repo_branch: ${{ env.test_config_repo_branch }}
+          test_site_repo_config_branch: ${{ env.test_site_repo_config_branch }}
+
       - name: Assert the state after running the action
         env:
           GH_TOKEN: ${{ secrets.TEST_SITE_REPO_TOKEN }}
-        working-directory: test
+        working-directory: test/site
         run: |
           # Assert the state after running the action
-          set -eux
-          exit=0
-          
-          git -C site fetch origin ${{ env.test_site_repo_config_branch }}
-          git -C remote fetch origin ${{ env.test_config_repo_branch }}
-          
-          if [[ "$(git -C remote rev-parse origin/${{ env.test_config_repo_branch }})" != "$(git -C site rev-parse origin/${{ env.test_site_repo_config_branch }})" ]]; then
-            echo "**TEST FAILURE:** The Drupal site repo's config-only branch wasn't in sync with the config repo's main branch." >> "$GITHUB_STEP_SUMMARY"
-            exit=1
-          fi
-          
-          cd site
-          git fetch
+          set -eu
           git checkout ${{ env.test_site_repo_pr_branch_base }}
           if [[ "$(gh pr list -H ${{ env.test_site_repo_pr_branch }} --json id)" == "[]" ]]; then
             echo "**TEST FAILURE:** There should be a PR created." >> "$GITHUB_STEP_SUMMARY"
-            exit=1
+            exit 1
           fi
-          
-          exit $exit
 
       - uses: ./test/update-config/.github/actions/test-teardown
         if: ${{ always() }}
@@ -267,29 +253,15 @@ jobs:
       - name: Assert the state after running the action
         env:
           GH_TOKEN: ${{ secrets.TEST_SITE_REPO_TOKEN }}
-        working-directory: test
+        working-directory: test/site
         run: |
           # Assert the state after running the action
-          set -eux
-          exit=0
-          
-          git -C site fetch origin ${{ env.test_site_repo_config_branch }}
-          git -C remote fetch origin ${{ env.test_config_repo_branch }}
-          
-          if [[ "$(git -C remote rev-parse origin/${{ env.test_config_repo_branch }})" != "$(git -C site rev-parse origin/${{ env.test_site_repo_config_branch }})" ]]; then
-            echo "**TEST FAILURE:** The Drupal site repo's config-only branch wasn't in sync with the config repo's main branch." >> "$GITHUB_STEP_SUMMARY"
-            exit=1
-          fi
-          
-          cd site
-          git fetch
+          set -eu
           git checkout ${{ env.test_site_repo_pr_branch_base }}
           if [[ "$(gh pr list -H ${{ env.test_site_repo_pr_branch }} --json id)" == "[]" ]]; then
             echo "**TEST FAILURE:** There should still be an existing PR." >> "$GITHUB_STEP_SUMMARY"
-            exit=1
+            exit 1
           fi
-          
-          exit $exit
 
       - uses: ./test/update-config/.github/actions/test-teardown
         if: ${{ always() }}
