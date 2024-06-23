@@ -93,8 +93,9 @@ runs:
         
         git checkout --orphan ${{ inputs.test_site_repo_pr_branch_base }}-new
         git rm -rf .
-        mkdir -p a z config/sync 
-        touch {a,z}/.gitkeep b config/sync/{c,d,e}
+        mkdir -p a z config/sync
+        cp -r ../remote/* config/sync
+        touch {a,z}/.gitkeep b
         git config user.name 'Test User'
         git config user.email 'test@example.com'
         git add .
@@ -103,7 +104,6 @@ runs:
         git checkout ${{ inputs.test_site_repo_pr_branch_base }}
         git reset --hard origin/${{ inputs.test_site_repo_pr_branch_base }}
         #git branch -d new-${{ inputs.test_site_repo_pr_branch_base }}
-        
 
         
         # THESE MIGHT NOT BE NECESSARY HERE, IT'S JUST DEFENSIVE

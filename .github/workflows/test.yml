@@ -57,7 +57,7 @@ jobs:
           test_site_repo_pr_branch: ${{ env.test_site_repo_pr_branch }}
           test_site_repo_pr_branch_base: ${{ env.test_site_repo_pr_branch_base }}
 
-      - uses: andriokha/auto-config-export@main
+      - uses: ./test/update-config
         with:
           config_repo: ${{ vars.TEST_CONFIG_REPO }}
           config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
@@ -141,7 +141,7 @@ jobs:
           git push origin HEAD
           git remote -v
 
-      - uses: andriokha/auto-config-export@main
+      - uses: ./test/update-config
         with:
           config_repo: ${{ vars.TEST_CONFIG_REPO }}
           config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
