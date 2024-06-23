@@ -98,7 +98,6 @@ jobs:
           git rev-parse HEAD
           git push origin HEAD
           git remote -v
-          sleep 10
 
       - uses: andriokha/auto-config-export@main
         with:

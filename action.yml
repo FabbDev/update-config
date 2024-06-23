@@ -130,9 +130,11 @@ runs:
     - uses: actions/checkout@v4
       if: ${{ env.local_head != env.remote_head }}
       with:
+        repository: ${{ inputs.site_repo }}
         ref: ${{ inputs.site_repo_config_branch }}
-        path: local
+        token: ${{ inputs.site_repo_token }}
         fetch-depth: 0
+        path: local
 
     - uses: actions/checkout@v4
       # If the repo config branch was created then we already have a full
