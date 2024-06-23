@@ -174,7 +174,7 @@ runs:
       shell: bash
       run: |
         # Create a site branch with the config and open a PR
-        set -eu
+        set -eux
         source_branch=${{ inputs.site_repo_pr_branch }}
         if ! git show-branch remotes/origin/${{ inputs.site_repo_pr_branch }} &> /dev/null; then
           git branch ${{ inputs.site_repo_pr_branch }} origin/${{ inputs.site_repo_pr_branch_base }}
