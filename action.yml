@@ -148,7 +148,10 @@ runs:
         git remote add remote-config ../remote
         git fetch remote-config
         git reset --hard remote-config/${{ inputs.config_repo_branch }}
+        echo 'config-only:'
         git log
+        echo 'origin/config-only:'
+        git log origin/config-only
         git push origin HEAD
         # echo "::endgroup::"
 
