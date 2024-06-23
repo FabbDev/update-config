@@ -145,7 +145,7 @@ jobs:
           rm config/sync/*
           cp -r ../remote/* config/sync
           git add .
-          git commit --amend
+          git commit --amend -m "Update"
           git push origin HEAD --force
 
       - uses: ./test/update-config
