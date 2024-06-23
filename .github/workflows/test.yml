@@ -47,6 +47,7 @@ jobs:
 
       - uses: ./test/update-config/.github/actions/test-setup
         with:
+          branch_prefix: "${{ github.job }}-"
           test_config_repo: ${{ vars.TEST_CONFIG_REPO }}
           test_config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
           test_config_repo_branch: ${{ env.test_config_repo_branch }}
@@ -117,6 +118,7 @@ jobs:
 
       - uses: ./test/update-config/.github/actions/test-setup
         with:
+          branch_prefix: "${{ github.job }}-"
           test_config_repo: ${{ vars.TEST_CONFIG_REPO }}
           test_config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
           test_config_repo_branch: ${{ env.test_config_repo_branch }}

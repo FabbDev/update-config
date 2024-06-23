@@ -36,6 +36,12 @@ inputs:
     type: string
     required: true
 
+#  DO I WANT?
+  branch_prefix:
+    description: The prefix used for test branches.
+    type: string
+    required: true
+
 runs:
   using: composite
   steps:
