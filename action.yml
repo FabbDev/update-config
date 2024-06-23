@@ -193,6 +193,7 @@ runs:
           git push origin HEAD
           echo 'Updated the config in branch `${{ inputs.site_repo_config_branch }}`.' >> $GITHUB_STEP_SUMMARY
           # Create a PR if there isn't already one.
+          gh pr list --head ${{ inputs.site_repo_pr_branch }} --json id
           if [[ "$(gh pr list --head ${{ inputs.site_repo_pr_branch }} --json id)" == "[]" ]]; then 
             pr_url=$(gh pr create \
               -B ${{ inputs.site_repo_pr_branch_base }} \

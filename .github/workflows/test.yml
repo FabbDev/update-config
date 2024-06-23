@@ -28,12 +28,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  test-initial-setup:
+    name: Test mirroring the config repo to the site repo (ie initial setup)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          path: test/update-config
 
       - uses: ./test/update-config/.github/actions/test-setup
         with:
@@ -54,7 +52,7 @@ jobs:
           GH_TOKEN: ${{ secrets.TEST_SITE_REPO_TOKEN }}
         working-directory: test
         run: |
-          # TEST STEP SUMMARY
+          # Assert the state after running the action
           set -eux
           exit=0
           cat "$GITHUB_STEP_SUMMARY"
@@ -78,6 +76,12 @@ jobs:
           exit $exit
           
       - uses: ./test/update-config/.github/actions/test-teardown
+        if: ${{ always() }}
+
+  test-config-update-and-pr:
+    name: Test updating the mirrored config branch and creating a PR from it.
+    runs-on: ubuntu-latest
+    steps:
 
       - uses: ./test/update-config/.github/actions/test-setup
         with:
@@ -111,6 +115,7 @@ jobs:
           GH_TOKEN: ${{ secrets.TEST_SITE_REPO_TOKEN }}
         working-directory: test
         run: |
+          # Assert the state after running the action
           set -eux
           exit=0
           cat "$GITHUB_STEP_SUMMARY"
@@ -126,7 +131,7 @@ jobs:
           cd site
           git fetch
           git checkout staging
-          if [[ "$(gh pr list --json id)" == "[]" ]]; then
+          if [[ "$(gh pr list -H automatic-config-export --json id)" == "[]" ]]; then
             echo "TEST FAILURE: There should be a PR created." >> "$GITHUB_STEP_SUMMARY"
             exit=1
           fi
@@ -135,3 +140,12 @@ jobs:
 
         # TEARDOWN DELETE NAY PRS
       - uses: ./test/update-config/.github/actions/test-teardown
+        if: ${{ always() }}
+
+      - name: Test-specific tear-down
+        if: ${{ always() }}
+        run: |
+          # Test-specific tear-down
+          if [[ "$(gh pr list -H automatic-config-export --json id)" != "[]" ]]; then
+            gh pr close automatic-config-export
+          fi

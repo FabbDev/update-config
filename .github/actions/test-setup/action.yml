@@ -25,6 +25,10 @@ runs:
   steps:
     - uses: actions/checkout@v4
       with:
+        path: test/update-config
+
+    - uses: actions/checkout@v4
+      with:
         repository: ${{ inputs.test_site_repo }}
         token: ${{ inputs.test_site_repo_token }}
         path: test/site

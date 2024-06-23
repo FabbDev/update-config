@@ -9,15 +9,7 @@ runs:
       shell: bash
       run: |
         # Tear down for test
-        pushd local
         if git show-branch remotes/origin/config-only &> /dev/null; then
           git push -d origin config-only
         fi
-        popd
-        
-        tmp=$(mktemp -d)
-        mv test/update-config "$tmp"
-        rm -rf * .* || true
-        mkdir test
-        mv "$tmp/update-config" test
-        rm -rf "$tmp"
+#        if [[ "$(gh pr list -H automatic-config-export --json id)" !=
