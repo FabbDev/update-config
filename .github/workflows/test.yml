@@ -194,13 +194,13 @@ jobs:
         with:
           branch_prefix: "${{ github.job }}-"
 
-      - name: Test-specific tear-down
-        if: ${{ always() }}
-        env:
-          GH_TOKEN: ${{ secrets.TEST_SITE_REPO_TOKEN }}
-        working-directory: test/site
-        run: |
-          # Test-specific tear-down
-          if [[ "$(gh pr list -H ${{ env.test_site_repo_pr_branch }} --json id)" != "[]" ]]; then
-            gh pr close ${{ env.test_site_repo_pr_branch }}
-          fi
+#      - name: Test-specific tear-down
+#        if: ${{ always() }}
+#        env:
+#          GH_TOKEN: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+#        working-directory: test/site
+#        run: |
+#          # Test-specific tear-down
+#          if [[ "$(gh pr list -H ${{ env.test_site_repo_pr_branch }} --json id)" != "[]" ]]; then
+#            gh pr close ${{ env.test_site_repo_pr_branch }}
+#          fi
