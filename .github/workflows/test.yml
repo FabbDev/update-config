@@ -29,7 +29,7 @@ concurrency:
 
 jobs:
   test-initial-setup:
-    if: false
+#    if: false
     name: Test mirroring the config repo to the site repo (ie initial setup)
     runs-on: ubuntu-latest
     concurrency:
@@ -102,7 +102,7 @@ jobs:
           branch_prefix: "${{ github.job }}-"
 
   test-create-pr:
-    if: false
+#    if: false
     name: Test updating the mirrored config branch and creating a PR from it.
     runs-on: ubuntu-latest
     env:
