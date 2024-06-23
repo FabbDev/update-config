@@ -72,13 +72,13 @@ runs:
         pushd remote
         git checkout --orphan ${{ inputs.test_config_repo_branch }}-new
         git rm -rf .
-        touch c d e
+        touch c d
         git add .
         git commit -m "Add initial mock config"
         echo modified > c
-        touch d
-        git add c d
-        git rm b
+        touch e
+        git add c e
+        git rm d
         git commit -m "Updated"
         git push origin HEAD:${{ inputs.test_config_repo_branch }} --force
         git checkout ${{ inputs.test_config_repo_branch }}
