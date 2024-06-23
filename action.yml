@@ -184,7 +184,7 @@ runs:
         git checkout ${{ inputs.site_repo_pr_branch }}
         
         cd config/sync
-        rm -rf *
+        rm *
         mv "$GITHUB_WORKSPACE"/remote/* .
         git add .
         if [[ -n "$(git status --porcelain)" ]]; then
