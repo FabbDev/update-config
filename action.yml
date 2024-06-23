@@ -161,8 +161,8 @@ runs:
         git remote -v
         echo 'config-only:'
         git log
-        echo 'origin/config-only:'
-        git log origin/config-only
+        echo 'origin/${{ inputs.site_repo_config_branch }}:'
+        git log origin/${{ inputs.site_repo_config_branch }}
         git push origin HEAD
         # echo "::endgroup::"
 
