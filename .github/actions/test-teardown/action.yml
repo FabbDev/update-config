@@ -11,7 +11,7 @@ runs:
         # Tear down for test
         pushd local
         if git show-branch remotes/origin/config-only &> /dev/null; then
-          git pushd -d origin config-only
+          git push -d origin config-only
         fi
         popd
         

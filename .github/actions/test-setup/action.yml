@@ -74,7 +74,5 @@ runs:
         git reset --hard new-staging
         git branch -d new-staging
         
-        git push -d origin config-only || true
-
         git push origin HEAD --force
         popd
