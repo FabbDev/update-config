@@ -156,6 +156,8 @@ jobs:
 
       - name: Test-specific tear-down
         if: ${{ always() }}
+        env:
+          GH_TOKEN: ${{ secrets.TEST_SITE_REPO_TOKEN }}
         run: |
           # Test-specific tear-down
           if [[ "$(gh pr list -H automatic-config-export --json id)" != "[]" ]]; then
