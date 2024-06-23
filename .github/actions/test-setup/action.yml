@@ -63,7 +63,7 @@ runs:
         git config --global user.email 'test@example.com'
 
         pushd remote
-        git checkout --orphan ${{ inputs.config_repo_branch }}-new
+        git checkout --orphan ${{ inputs.test_config_repo_branch }}-new
         git rm -rf .
         touch c d e
         git add .
@@ -71,14 +71,14 @@ runs:
         echo modified > c
         git add c
         git commit -m "Updated c"
-        git push origin HEAD:${{ inputs.config_repo_branch }} --force
-        git checkout ${{ inputs.config_repo_branch }}
-        git reset --hard origin/${{ inputs.config_repo_branch }}
+        git push origin HEAD:${{ inputs.test_config_repo_branch }} --force
+        git checkout ${{ inputs.test_config_repo_branch }}
+        git reset --hard origin/${{ inputs.test_config_repo_branch }}
         # git branch -d new-main
         popd
 
         pushd site
-        git checkout --orphan ${{ inputs.site_repo_pr_branch_base }}-new
+        git checkout --orphan ${{ inputs.test_site_repo_pr_branch_base }}-new
         git rm -rf .
         mkdir -p a z config/sync 
         touch {a,z}/.gitkeep b config/sync/{c,d,e}
@@ -86,18 +86,18 @@ runs:
         git config user.email 'test@example.com'
         git add .
         git commit -m "Add mock Drupal site"
-        git push origin HEAD:${{ inputs.site_repo_pr_branch_base }} --force
-        git checkout ${{ inputs.site_repo_pr_branch_base }}
-        git reset --hard origin/${{ inputs.site_repo_pr_branch_base }}
-        #git branch -d new-${{ inputs.site_repo_pr_branch_base }}
+        git push origin HEAD:${{ inputs.test_site_repo_pr_branch_base }} --force
+        git checkout ${{ inputs.test_site_repo_pr_branch_base }}
+        git reset --hard origin/${{ inputs.test_site_repo_pr_branch_base }}
+        #git branch -d new-${{ inputs.test_site_repo_pr_branch_base }}
         
         # THESE MIGHT NOT BE NECESSARY HERE, IT'S JUST DEFENSIVE
-        #if git show-branch remotes/origin/${{ inputs.site_repo_config_branch }} &> /dev/null; then
-        #  git push -d origin ${{ inputs.site_repo_config_branch }}
+        #if git show-branch remotes/origin/${{ inputs.test_site_repo_config_branch }} &> /dev/null; then
+        #  git push -d origin ${{ inputs.test_site_repo_config_branch }}
         #fi
         # IF THE FOLLOWING'S REMOVED, LOOKS LIKE WE DON'T NEED TO KNOW THE PR BRANCH FOR THIS ACTION
-        #if git show-branch remotes/origin/${{ inputs.site_repo_pr_branch }} &> /dev/null; then
-        #  git push -d origin ${{ inputs.site_repo_pr_branch }}
+        #if git show-branch remotes/origin/${{ inputs.test_site_repo_pr_branch }} &> /dev/null; then
+        #  git push -d origin ${{ inputs.test_site_repo_pr_branch }}
         #fi
 
         #git push origin HEAD --force
