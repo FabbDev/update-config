@@ -194,4 +194,3 @@ jobs:
           if [[ "$(gh pr list -H ${{ env.test_site_repo_pr_branch }} --json id)" != "[]" ]]; then
             gh pr close ${{ env.test_site_repo_pr_branch }}
           fi
-
