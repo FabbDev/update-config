@@ -161,3 +161,13 @@ jobs:
           if [[ "$(gh pr list -H automatic-config-export --json id)" != "[]" ]]; then
             gh pr close automatic-config-export
           fi
+
+  test-config-update-and-pr-test:
+    name: Test what happens with a third job
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-job
+    steps:
+      - name: Test
+        run: |
+          echo testing
