@@ -206,5 +206,5 @@ runs:
             echo "A PR for the branch already exists. No further action required." >> $GITHUB_STEP_SUMMARY
           fi
         else
-          echo "Branch \`${{ inputs.site_config_branch }}\` has been updated, but the changes match what's already in branch \`$source_branch\`. No further action required." >> $GITHUB_STEP_SUMMARY
+          echo "Branch \`${{ inputs.site_repo_config_branch }}\` has been updated, but the changes match what's already in branch \`$source_branch\`. No further action required." >> $GITHUB_STEP_SUMMARY
         fi
