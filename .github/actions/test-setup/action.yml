@@ -74,5 +74,9 @@ runs:
         git reset --hard new-staging
         git branch -d new-staging
         
+        if git show-branch remotes/origin/config-only &> /dev/null; then
+          git push -d origin config-only
+        fi
+
         git push origin HEAD --force
         popd
