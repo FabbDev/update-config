@@ -87,7 +87,12 @@ runs:
         git config user.email 'test@example.com'
         git add .
         git commit -m "Add mock Drupal site"
+        
+        echo modified > config/sync/e
+        git add config/sync
+        git commit -m "Simulate updating config during development"
         git push origin HEAD:${{ inputs.test_site_repo_pr_branch_base }} --force
+        
         git checkout ${{ inputs.test_site_repo_pr_branch_base }}
         git reset --hard origin/${{ inputs.test_site_repo_pr_branch_base }}
         popd
