@@ -26,6 +26,10 @@ inputs:
     description: The branch on the site repository that mirrors the config repository.
     type: string
     required: true
+  test_site_repo_live_branch:
+    description: The name of the live branch (ie the one that's currently deployed).
+    type: string
+    required: true
   test_site_repo_pr_branch:
     description: The name of the topic branch to create on the site repository with config changes.
     type: string
@@ -61,6 +65,7 @@ runs:
         git config --global user.name 'Test User'
         git config --global user.email 'test@example.com'
 
+        # Create the main branch on the config repo with two commits.
         pushd remote
         git checkout --orphan ${{ inputs.test_config_repo_branch }}-new
         git rm -rf .
@@ -72,26 +77,29 @@ runs:
         git add c e
         git rm d
         git commit -m "Updated"
-        git push origin HEAD:${{ inputs.test_config_repo_branch }} --force
+        git push origin HEAD:${{ inputs.test_config_repo_branch }}
         git checkout ${{ inputs.test_config_repo_branch }}
         git reset --hard origin/${{ inputs.test_config_repo_branch }}
         popd
 
+        # Add the mock site with current config to staging and main.
         pushd site
         git checkout --orphan ${{ inputs.test_site_repo_pr_branch_base }}-new
         git rm -rf .
         mkdir -p a z config/sync
         cp -r ../remote/* config/sync
         touch {a,z}/.gitkeep b
-        git config user.name 'Test User'
-        git config user.email 'test@example.com'
         git add .
         git commit -m "Add mock Drupal site"
         
+        git branch ${{ inputs.test_site_repo_live_branch }}
+        git push origin ${{ inputs.test_site_repo_live_branch }}
+        
+        # Add an extra commit to staging only with an additional config change.
         echo modified > config/sync/e
         git add config/sync
         git commit -m "Simulate updating config during development"
-        git push origin HEAD:${{ inputs.test_site_repo_pr_branch_base }} --force
+        git push origin HEAD:${{ inputs.test_site_repo_pr_branch_base }}
         
         git checkout ${{ inputs.test_site_repo_pr_branch_base }}
         git reset --hard origin/${{ inputs.test_site_repo_pr_branch_base }}

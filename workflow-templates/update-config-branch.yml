@@ -13,6 +13,8 @@ name: Check for config updates
 # - CONFIG_REPO: The GitHub config repo, eg. MyOrg/MySiteConfig.
 # - SITE_REPO_PR_BRANCH_BASE: (optional) The branch from which the config topic
 #   branch will be made for the PR; defaults to 'staging'.
+# - SITE_REPO_LIVE_BRANCH: (optional) The name of the live branch (ie the one
+#   that's currently deployed).
 # - GITHUB_NOTIFY: (optional) A space-separated list of github users including
 #   '@' to ping on a new PR, eg. '@andy @becca'.
 
@@ -38,3 +40,4 @@ jobs:
           config_repo_token: ${{ secrets.CONFIG_REPO_TOKEN }}
           github_notify: ${{ vars.GITHUB_NOTIFY }}
           site_repo_pr_branch_base: ${{ vars.SITE_REPO_PR_BRANCH_BASE || 'staging' }}
+          site_repo_live_branch: ${{ vars.SITE_REPO_LIVE_BRANCH || 'main' }}

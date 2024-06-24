@@ -40,6 +40,11 @@ inputs:
     type: string
     required: true
     default: config-only
+  site_repo_live_branch:
+    description: The name of the live branch (ie the one that's currently deployed).
+    type: string
+    default: main
+    required: true
   site_repo_pr_branch:
     description: The name of the topic branch to create on the site repository with config changes.
     type: string
@@ -167,7 +172,7 @@ runs:
         set -eu
         source_branch=${{ inputs.site_repo_pr_branch }}
         if ! git show-branch remotes/origin/${{ inputs.site_repo_pr_branch }} &> /dev/null; then
-          git branch ${{ inputs.site_repo_pr_branch }} origin/${{ inputs.site_repo_pr_branch_base }}
+          git branch ${{ inputs.site_repo_pr_branch }} origin/${{ inputs.site_repo_live_branch }}
           source_branch=${{ inputs.site_repo_pr_branch_base }}
         fi
         git checkout ${{ inputs.site_repo_pr_branch }}

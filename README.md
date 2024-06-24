@@ -89,6 +89,10 @@ with:
   # The branch on the site repository that mirrors the config repository.
   # Default: config-only
   site_repo_config_branch: ''
+
+  # The name of the live branch (ie the one that's currently deployed).
+  # Default: main
+  site_repo_live_branch: ''
   
   # The name of the topic branch to create on the site repository with config
   # changes.

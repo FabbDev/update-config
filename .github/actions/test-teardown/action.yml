@@ -12,10 +12,16 @@ runs:
   steps:
     - name: Tear down for test
       shell: bash
-      working-directory: test/site
+      working-directory: test
       run: |
-        # Tear down for test
         set -eu
-        git for-each-ref "refs/remotes/origin/${{ inputs.branch_prefix }}*" --format '%(refname:short)' | while read refname
-          do git push -d origin ${refname//'origin/'/}
+        # Tear down for test
+        for directory in remote site; do
+          pushd "$directory"
+          git for-each-ref "refs/remotes/origin/${{ inputs.branch_prefix }}*" --format '%(refname:short)' | while read refname; do
+            branch=${refname//'origin/'/}
+            git push -d origin $branch
+            echo "Deleted $directory branch '$branch'."
+          done
+          popd
         done
