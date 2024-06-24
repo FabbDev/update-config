@@ -29,7 +29,7 @@ concurrency:
 
 jobs:
   test-initial-setup:
-    if: false
+#    if: false
     name: Test mirroring the config repo to the site repo (ie initial setup)
     runs-on: ubuntu-latest
     concurrency:
@@ -39,7 +39,6 @@ jobs:
       test_site_repo_config_branch: "${{ github.job }}-config-only"
       test_site_repo_pr_branch: "${{ github.job }}-automatic-config-export"
       test_site_repo_pr_branch_base: "${{ github.job }}-staging"
-
     steps:
 
       - uses: actions/checkout@v4
@@ -97,7 +96,7 @@ jobs:
           branch_prefix: "${{ github.job }}-"
 
   test-create-pr:
-    if: false
+#    if: false
     name: Test updating the mirrored config branch and creating a PR from it.
     runs-on: ubuntu-latest
     env:
@@ -228,7 +227,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.TEST_SITE_REPO_TOKEN }}
         working-directory: test
-  # TODO: See if I'm only using git config.name etc. as few times as pos
         run: |
           set -eux
           cd site
@@ -321,7 +319,6 @@ jobs:
           test_site_repo_config_branch: ${{ env.test_site_repo_config_branch }}
           test_site_repo_pr_branch: ${{ env.test_site_repo_pr_branch }}
           test_site_repo_pr_branch_base: ${{ env.test_site_repo_pr_branch_base }}
-
 
       - name: 'Test setup for testing matching config'
         working-directory: test
