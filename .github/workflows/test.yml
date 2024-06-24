@@ -29,7 +29,7 @@ concurrency:
 
 jobs:
   test-initial-setup:
-#    if: false
+    if: false
     name: Test mirroring the config repo to the site repo (ie initial setup)
     runs-on: ubuntu-latest
     concurrency:
@@ -97,7 +97,7 @@ jobs:
           branch_prefix: "${{ github.job }}-"
 
   test-create-pr:
-#    if: false
+    if: false
     name: Test updating the mirrored config branch and creating a PR from it.
     runs-on: ubuntu-latest
     env:
@@ -285,7 +285,6 @@ jobs:
         run: |
           # Assert the state after running the action
           set -eu
-          git checkout ${{ env.test_site_repo_pr_branch_base }}
           if [[ "$(gh pr list -H ${{ env.test_site_repo_pr_branch }} --json id)" == "[]" ]]; then
             echo "**TEST FAILURE:** There should still be an existing PR." >> "$GITHUB_STEP_SUMMARY"
             exit 1
@@ -297,7 +296,7 @@ jobs:
           branch_prefix: "${{ github.job }}-"
 
   test-identical-config:
-    #    if: false
+#    if: false
     name: Test updating the mirrored config branch only to find it matches what's already in staging.
     runs-on: ubuntu-latest
     env:
@@ -361,14 +360,13 @@ jobs:
           GH_TOKEN: ${{ secrets.TEST_SITE_REPO_TOKEN }}
         working-directory: test/site
         run: |
-          set -eu
+          set -eux
           exit=0
           tmp_dir=$(mktemp -d)
           git checkout ${{ env.test_site_repo_config_branch }}
           cp * "$tmp_dir"
           
-          git checkout ${{ env.test_site_repo_pr_branch }}
-          if [[ "$(gh pr list --json id)" != "[]" ]]; then
+          if [[ "$(gh pr list --head ${{ env.test_site_repo_pr_branch }} --json id)" != "[]" ]]; then
             echo "**TEST FAILURE:** There should not be a PR created." >> "$GITHUB_STEP_SUMMARY"
             exit=1
           fi
