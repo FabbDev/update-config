@@ -32,7 +32,7 @@ jobs:
       pull-requests: write
     runs-on: ubuntu-latest
     steps:
-      - uses: andriokha/auto-config-export@main
+      - uses: andriokha/update-config@main
         with:
           config_repo: ${{ vars.CONFIG_REPO }}
           config_repo_token: ${{ secrets.CONFIG_REPO_TOKEN }}
