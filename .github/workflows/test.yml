@@ -3,8 +3,10 @@ name: Test
 # workflow-templates/update-config-branch.yml instead.
 #
 # Secrets
-# - TEST_CONFIG_REPO_TOKEN: A token with write access to the test config repo.
-# - TEST_SITE_REPO_TOKEN: A token with write access to the test site repo.
+# - TEST_CONFIG_REPO_TOKEN: A token with write access to the contents of the
+#   config repo.
+# - TEST_SITE_REPO_TOKEN: A token with write access to the contents and PRs of
+#   the test site repo.
 # Variables
 # - TEST_CONFIG_REPO: The GitHub config repo for use with the test.
 # - TEST_SITE_REPO: The GitHub site repo for use with the test.
