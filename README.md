@@ -1,6 +1,6 @@
 # Automatic configuration export
 
-![Current test results](https://github.com/andriokha/update-config/actions/workflows/test.yml/badge.svg)
+![Current test results](https://github.com/FabbDev/update-config/actions/workflows/test.yml/badge.svg)
 
 **TODO: Extract the Drupal module `config_change_track` from Subscriptions.**
 
@@ -66,7 +66,7 @@ with the config repo, and opening a PR when the latest config doesn't match
 what's in the site repo's staging branch.
 
 ```yaml
-uses: andriokha/update-config@main
+uses: FabbDev/update-config@main
 with:
   # The GitHub config repo, eg. MyOrg/MySiteConfig.
   config_repo: ''
