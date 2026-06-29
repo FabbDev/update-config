@@ -73,7 +73,7 @@ runs:
         git add .
         git commit -m "Add initial mock config"
         echo modified > c
-        touch e
+        echo baseline > e
         git add c e
         git rm d
         git commit -m "Updated"

@@ -146,6 +146,7 @@ jobs:
           git checkout ${{ env.test_site_repo_live_branch }}
           rm config/sync/*
           mv "$tmp_dir"/* config/sync
+          echo baseline > config/sync/e
           git add config/sync
           git commit --amend -m "Update"
           git push --force origin HEAD
