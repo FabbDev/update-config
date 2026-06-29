@@ -299,12 +299,39 @@ jobs:
           GH_TOKEN: ${{ secrets.TEST_SITE_REPO_TOKEN }}
         working-directory: test/site
         run: |
-          # Assert the state after running the action
+          # Assert the existing PR was updated and not duplicated
           set -eu
-          if [[ "$(gh pr list -H ${{ env.test_site_repo_pr_branch }} --json id)" == "[]" ]]; then
-            echo "**TEST FAILURE:** There should still be an existing PR." >> "$GITHUB_STEP_SUMMARY"
-            exit 1
+          exit=0
+
+          git checkout origin/${{ env.test_site_repo_pr_branch }} -- config/sync
+
+          if [[ "$(cat config/sync/c)" != "modified" ]]; then
+            echo "**TEST FAILURE:** config/sync/c should be 'modified' (new config from HEAD)." >> "$GITHUB_STEP_SUMMARY"
+            exit=1
           fi
+
+          if [[ ! -f config/sync/e ]]; then
+            echo "**TEST FAILURE:** config/sync/e should be present (from config repo HEAD)." >> "$GITHUB_STEP_SUMMARY"
+            exit=1
+          fi
+
+          if [[ -f config/sync/test-existing-pr ]]; then
+            echo "**TEST FAILURE:** config/sync/test-existing-pr should be gone (stale pre-action file)." >> "$GITHUB_STEP_SUMMARY"
+            exit=1
+          fi
+
+          if [[ -f config/sync/d ]]; then
+            echo "**TEST FAILURE:** config/sync/d should be gone (stale pre-action file)." >> "$GITHUB_STEP_SUMMARY"
+            exit=1
+          fi
+
+          pr_count=$(gh pr list --head ${{ env.test_site_repo_pr_branch }} --json id --jq 'length')
+          if [[ "$pr_count" != "1" ]]; then
+            echo "**TEST FAILURE:** Expected exactly 1 open PR, found $pr_count." >> "$GITHUB_STEP_SUMMARY"
+            exit=1
+          fi
+
+          exit $exit
 
       - uses: ./test/update-config/.github/actions/test-teardown
         if: ${{ always() }}
