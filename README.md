@@ -118,6 +118,12 @@ with:
   github_notify: ''
 ```
 
+## Testing the host script
+
+[`check-and-push-config.sh`] has a self-contained BATS test suite. Run it with
+`make test` (BATS is downloaded automatically on first run). Currently the other
+tests can only be run on GitHub.
+
 [`check-and-push-config.sh`]: scripts/check-and-push-config.sh
 [`update-config-branch.yml`]: workflow-templates/update-config-branch.yml
 [Config Change Track]: https://www.drupal.org/project/config_change_track

@@ -1,0 +1,26 @@
+name: Test Drupal host script
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+jobs:
+  test-script:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache BATS
+        uses: actions/cache@v4
+        with:
+          path: .bats
+          key: bats-${{ hashFiles('bats.lock') }}
+
+      - run: make test
