@@ -69,6 +69,11 @@ inputs:
     description: A space-separated list of github users including '@' to ping on a new PR, eg. '@andy @becca'.
     type: string
 
+outputs:
+  summary:
+    description: The primary outcome message of the config update / PR step.
+    value: ${{ steps.create_pr.outputs.summary }}
+
 runs:
   using: composite
   steps:
@@ -162,6 +167,7 @@ runs:
         git push origin HEAD
 
     - name: Create a site branch with the config and open a PR
+      id: create_pr
       if: ${{ env.local_head != env.remote_head }}
       working-directory: local
       env:
@@ -173,7 +179,7 @@ runs:
         source_branch=${{ inputs.site_repo_pr_branch }}
         if ! git show-branch remotes/origin/${{ inputs.site_repo_pr_branch }} &> /dev/null; then
           git branch ${{ inputs.site_repo_pr_branch }} origin/${{ inputs.site_repo_live_branch }}
-          source_branch=${{ inputs.site_repo_pr_branch_base }}
+          source_branch=${{ inputs.site_repo_live_branch }}
         fi
         git checkout ${{ inputs.site_repo_pr_branch }}
         
@@ -186,7 +192,9 @@ runs:
           git config user.email '${{ inputs.committer_email }}'
           git commit -m "Export config from Prod" -m "${{ inputs.config_repo }}:$remote_head"
           git push origin HEAD
-          echo 'Updated the config in branch `${{ inputs.site_repo_config_branch }}`.' >> $GITHUB_STEP_SUMMARY
+          summary="Updated the config in branch \`${{ inputs.site_repo_pr_branch }}\`."
+          echo "$summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "summary=$summary" >> "$GITHUB_OUTPUT"
           # Create a PR if there isn't already one.
           if [[ "$(gh pr list --head ${{ inputs.site_repo_pr_branch }} --json id)" == "[]" ]]; then 
             pr_url=$(gh pr create \
@@ -199,5 +207,7 @@ runs:
             echo "A PR for the branch already exists. No further action required." >> $GITHUB_STEP_SUMMARY
           fi
         else
-          echo "Branch \`${{ inputs.site_repo_config_branch }}\` has been updated, but the changes match what's already in branch \`$source_branch\`. No further action required." >> $GITHUB_STEP_SUMMARY
+          summary="Branch \`${{ inputs.site_repo_config_branch }}\` has been updated, but the changes match what's already in branch \`$source_branch\`. No further action required."
+          echo "$summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "summary=$summary" >> "$GITHUB_OUTPUT"
         fi

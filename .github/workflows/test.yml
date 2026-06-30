@@ -160,6 +160,7 @@ jobs:
           git push --force
 
       - uses: ./test/update-config
+        id: run_action
         with:
           config_repo: ${{ vars.TEST_CONFIG_REPO }}
           config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
@@ -187,12 +188,12 @@ jobs:
         run: |
           set -eu
           exit=0
-          
+
           if [[ "$(gh pr list --head ${{ env.test_site_repo_pr_branch }} --json id)" == "[]" ]]; then
             echo "**TEST FAILURE:** There should be a PR created." >> "$GITHUB_STEP_SUMMARY"
             exit=1
           fi
-          
+
           git checkout ${{ env.test_site_repo_pr_branch_base }}
           if ! git merge --no-edit origin/${{ env.test_site_repo_pr_branch }}; then
             echo "**TEST FAILURE:** Merging the config PR into \`${{ env.test_site_repo_pr_branch_base }}\` produced a conflict." >> "$GITHUB_STEP_SUMMARY"
@@ -203,13 +204,24 @@ jobs:
             echo "**TEST FAILURE:** After merging the config PR the 'c' file is incorrect." >> "$GITHUB_STEP_SUMMARY"
             exit=1
           fi
-          
+
           if [[ "$(cat config/sync/e)" != "modified" ]]; then
             echo "**TEST FAILURE:** After merging the config PR the 'e' file is incorrect." >> "$GITHUB_STEP_SUMMARY"
             exit=1
           fi
-          
+
           exit $exit
+
+      - name: Assert the summary names the PR branch, not the config branch
+        env:
+          SUMMARY: ${{ steps.run_action.outputs.summary }}
+        run: |
+          set -eu
+          printf '%s' "$SUMMARY" | grep -qF "${{ env.test_site_repo_pr_branch }}" || {
+            echo "**TEST FAILURE:** Summary should name the PR branch (\`${{ env.test_site_repo_pr_branch }}\`), was: $SUMMARY" >> "$GITHUB_STEP_SUMMARY"; exit 1; }
+          if printf '%s' "$SUMMARY" | grep -qF "${{ env.test_site_repo_config_branch }}"; then
+            echo "**TEST FAILURE:** Summary should not name the config-only branch as the commit target, was: $SUMMARY" >> "$GITHUB_STEP_SUMMARY"; exit 1
+          fi
 
       - uses: ./test/update-config/.github/actions/test-teardown
         if: ${{ always() }}
@@ -279,6 +291,7 @@ jobs:
           rm -rf "$tmp_dir"
 
       - uses: ./test/update-config
+        id: run_action
         with:
           config_repo: ${{ vars.TEST_CONFIG_REPO }}
           config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
@@ -337,6 +350,17 @@ jobs:
           fi
 
           exit $exit
+
+      - name: Assert the summary names the PR branch, not the config branch
+        env:
+          SUMMARY: ${{ steps.run_action.outputs.summary }}
+        run: |
+          set -eu
+          printf '%s' "$SUMMARY" | grep -qF "${{ env.test_site_repo_pr_branch }}" || {
+            echo "**TEST FAILURE:** Summary should name the PR branch (\`${{ env.test_site_repo_pr_branch }}\`), was: $SUMMARY" >> "$GITHUB_STEP_SUMMARY"; exit 1; }
+          if printf '%s' "$SUMMARY" | grep -qF "${{ env.test_site_repo_config_branch }}"; then
+            echo "**TEST FAILURE:** Summary should not name the config-only branch as the commit target, was: $SUMMARY" >> "$GITHUB_STEP_SUMMARY"; exit 1
+          fi
 
       - uses: ./test/update-config/.github/actions/test-teardown
         if: ${{ always() }}
@@ -465,6 +489,7 @@ jobs:
           git push origin HEAD
 
       - uses: ./test/update-config
+        id: run_action
         with:
           config_repo: ${{ vars.TEST_CONFIG_REPO }}
           config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
@@ -492,9 +517,6 @@ jobs:
         run: |
           set -eu
           exit=0
-          #tmp_dir=$(mktemp -d)
-          #git checkout ${{ env.test_site_repo_config_branch }}
-          #cp * "$tmp_dir"
           
           if [[ "$(gh pr list --head ${{ env.test_site_repo_pr_branch }} --json id)" != "[]" ]]; then
             echo "**TEST FAILURE:** There should not be a PR created." >> "$GITHUB_STEP_SUMMARY"
@@ -502,20 +524,29 @@ jobs:
           fi
           
           git checkout ${{ env.test_site_repo_pr_branch_base }}
-          
+
           if [[ "$(cat config/sync/c)" != "modified" ]]; then
             echo "**TEST FAILURE:** The PR base branch doesn't contain the updated file 'c'." >> "$GITHUB_STEP_SUMMARY"
             exit=1
           fi
-          
+
           if [[ "$(cat config/sync/e)" != "modified" ]]; then
             echo "**TEST FAILURE:** The PR base branch doesn't contain the updated file 'e'." >> "$GITHUB_STEP_SUMMARY"
             exit=1
           fi
-          
-          #rm -rf "$tmp_dir"
-          
+
           exit $exit
+
+      - name: Assert the no-op summary names the live branch, not the base branch
+        env:
+          SUMMARY: ${{ steps.run_action.outputs.summary }}
+        run: |
+          set -eu
+          printf '%s' "$SUMMARY" | grep -qF "${{ env.test_site_repo_live_branch }}" || {
+            echo "**TEST FAILURE:** No-op summary should name the live branch (\`${{ env.test_site_repo_live_branch }}\`), was: $SUMMARY" >> "$GITHUB_STEP_SUMMARY"; exit 1; }
+          if printf '%s' "$SUMMARY" | grep -qF "${{ env.test_site_repo_pr_branch_base }}"; then
+            echo "**TEST FAILURE:** No-op summary should not name the PR base branch, was: $SUMMARY" >> "$GITHUB_STEP_SUMMARY"; exit 1
+          fi
 
       - uses: ./test/update-config/.github/actions/test-teardown
         if: ${{ always() }}
