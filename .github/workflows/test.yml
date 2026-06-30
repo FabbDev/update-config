@@ -194,7 +194,11 @@ jobs:
           fi
           
           git checkout ${{ env.test_site_repo_pr_branch_base }}
-          git merge origin/${{ env.test_site_repo_pr_branch }}
+          if ! git merge --no-edit origin/${{ env.test_site_repo_pr_branch }}; then
+            echo "**TEST FAILURE:** Merging the config PR into \`${{ env.test_site_repo_pr_branch_base }}\` produced a conflict." >> "$GITHUB_STEP_SUMMARY"
+            git merge --abort || true
+            exit 1
+          fi
           if [[ "$(cat config/sync/c)" != "modified" ]]; then
             echo "**TEST FAILURE:** After merging the config PR the 'c' file is incorrect." >> "$GITHUB_STEP_SUMMARY"
             exit=1
