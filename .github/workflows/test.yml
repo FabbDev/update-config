@@ -43,7 +43,7 @@ jobs:
       test_site_repo_pr_branch_base: "${{ github.job }}-staging"
     steps:
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           path: test/update-config
 
@@ -112,7 +112,7 @@ jobs:
       test_site_repo_pr_branch_base: "${{ github.job }}-staging"
     steps:
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           path: test/update-config
 
@@ -212,7 +212,7 @@ jobs:
       test_site_repo_live_branch: "${{ github.job }}-main"
     steps:
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           path: test/update-config
 
@@ -339,7 +339,7 @@ jobs:
       test_site_repo_live_branch: "${{ github.job }}-main"
     steps:
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           path: test/update-config
 
@@ -480,7 +480,7 @@ jobs:
       test_site_repo_pr_branch_base: "${{ github.job }}-staging"
     steps:
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           path: test/update-config
 
@@ -618,7 +618,7 @@ jobs:
       test_site_repo_live_branch: "${{ github.job }}-main"
     steps:
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           path: test/update-config
 
@@ -701,7 +701,7 @@ jobs:
       test_site_repo_live_branch: "${{ github.job }}-main"
     steps:
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           path: test/update-config
 

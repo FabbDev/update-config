@@ -80,7 +80,7 @@ runs:
     # Optimize for the normal case that the two branches are the same. So start
     # by doing a shallow checkout of both and checking their hashes. If they're
     # different, then do a full checkout to enable a merge.
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       id: checkout_site_repo_config_branch
       with:
         repository: ${{ inputs.site_repo }}
@@ -90,14 +90,14 @@ runs:
       # It might error if the config-only branch doesn't exist yet.
       continue-on-error: true
 
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       if: ${{ steps.checkout_site_repo_config_branch.outcome == 'failure' }}
       with:
         repository: ${{ inputs.site_repo }}
         token: ${{ inputs.site_repo_token }}
         path: local
 
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       with:
         repository: ${{ inputs.config_repo }}
         ref: ${{ inputs.config_repo_branch }}
@@ -136,7 +136,7 @@ runs:
           echo 'The local config branch `${{ inputs.site_repo_config_branch }}` is up-to-date with the remote. No further action required.' >> $GITHUB_STEP_SUMMARY
         fi
 
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       if: ${{ env.local_head != env.remote_head || steps.checkout_site_repo_config_branch.outcome == 'failure' }}
       with:
         repository: ${{ inputs.site_repo }}
@@ -145,7 +145,7 @@ runs:
         fetch-depth: 0
         path: local
 
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       # If the repo config branch was created then we already have a full
       # checkout.
       if: ${{ env.local_head != env.remote_head && steps.checkout_site_repo_config_branch.outcome != 'failure' }}
