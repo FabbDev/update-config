@@ -1,6 +1,6 @@
 name: Update config branch
 description: Updates the config-only branch and creates a PR if there are any changes.
-# This works as part of automating config export. A cron job on Platform.sh
+# This works as part of automating config export. A cron job on the web site
 # periodically updates an intermediate config repo with the latest config. The
 # config repo only contains config, it doesn't share a history with the site
 # repo. This workflow keeps a branch on the site repo up-to-date with a branch

@@ -31,7 +31,6 @@ concurrency:
 
 jobs:
   test-initial-setup:
-#    if: false
     name: Test mirroring the config repo to the site repo (ie initial setup)
     runs-on: ubuntu-latest
     concurrency:
@@ -101,7 +100,6 @@ jobs:
           branch_prefix: "${{ github.job }}-"
 
   test-create-pr:
-#    if: false
     name: Test updating the mirrored config branch and creating a PR from it.
     runs-on: ubuntu-latest
     env:
@@ -229,7 +227,6 @@ jobs:
           branch_prefix: "${{ github.job }}-"
 
   test-existing-pr:
-#    if: false
     name: Test updating an existing PR.
     runs-on: ubuntu-latest
     env:
@@ -451,7 +448,6 @@ jobs:
           branch_prefix: "${{ github.job }}-"
 
   test-identical-config:
-#    if: false
     name: Test updating the mirrored config branch only to find it matches what's already in staging.
     runs-on: ubuntu-latest
     env:
