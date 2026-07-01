@@ -178,13 +178,22 @@ runs:
       run: |
         # Create a site branch with the config and open a PR
         set -eu
+        # Decide whether to reuse the existing PR branch based on whether an
+        # open PR for this head->base already exists. A branch left behind by a
+        # closed/rejected PR must not have new commits stacked on its history.
+        open_pr=$(gh pr list \
+          --head ${{ inputs.site_repo_pr_branch }} \
+          --base ${{ inputs.site_repo_pr_branch_base }} \
+          --state open --json id --jq 'length')
         source_branch=${{ inputs.site_repo_pr_branch }}
-        if ! git show-branch remotes/origin/${{ inputs.site_repo_pr_branch }} &> /dev/null; then
-          git branch ${{ inputs.site_repo_pr_branch }} origin/${{ inputs.site_repo_live_branch }}
+        if [[ "$open_pr" == "0" ]]; then
+          # No open PR: recreate the PR branch fresh from live so any stale or
+          # rejected history is discarded and it holds only the current diff.
+          git branch -f ${{ inputs.site_repo_pr_branch }} origin/${{ inputs.site_repo_live_branch }}
           source_branch=${{ inputs.site_repo_live_branch }}
         fi
         git checkout ${{ inputs.site_repo_pr_branch }}
-        
+
         cd config/sync
         rm *
         mv "$GITHUB_WORKSPACE"/remote/* .
@@ -193,12 +202,15 @@ runs:
           git config user.name '${{ inputs.committer_name }}'
           git config user.email '${{ inputs.committer_email }}'
           git commit -m "Export config from Prod" -m "${{ inputs.config_repo }}:$remote_head"
-          git push origin HEAD
+          # After `git branch -f` the local PR branch diverges from any stale
+          # `origin/<pr_branch>` left by a closed PR. This only ever targets the
+          # automation-owned PR branch.
+          git push --force-with-lease origin HEAD
           summary="Updated the config in branch \`${{ inputs.site_repo_pr_branch }}\`."
           echo "$summary" >> "$GITHUB_STEP_SUMMARY"
           echo "summary=$summary" >> "$GITHUB_OUTPUT"
-          # Create a PR if there isn't already one.
-          if [[ "$(gh pr list --head ${{ inputs.site_repo_pr_branch }} --json id)" == "[]" ]]; then 
+          # Create a PR if there isn't already an open one.
+          if [[ "$open_pr" == "0" ]]; then
             pr_url=$(gh pr create \
               -B ${{ inputs.site_repo_pr_branch_base }} \
               -H ${{ inputs.site_repo_pr_branch }} \

@@ -328,6 +328,147 @@ jobs:
         with:
           branch_prefix: "${{ github.job }}-"
 
+  test-stale-closed-pr:
+    name: Test that a leftover branch from a closed/rejected PR is reset, not stacked onto.
+    runs-on: ubuntu-latest
+    env:
+      test_config_repo_branch: "${{ github.job }}-main"
+      test_site_repo_config_branch: "${{ github.job }}-config-only"
+      test_site_repo_pr_branch: "${{ github.job }}-automatic-config-export"
+      test_site_repo_pr_branch_base: "${{ github.job }}-staging"
+      test_site_repo_live_branch: "${{ github.job }}-main"
+    steps:
+
+      - uses: actions/checkout@v4
+        with:
+          path: test/update-config
+
+      - uses: ./test/update-config/.github/actions/test-setup
+        with:
+          branch_prefix: "${{ github.job }}-"
+          test_config_repo: ${{ vars.TEST_CONFIG_REPO }}
+          test_config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
+          test_config_repo_branch: ${{ env.test_config_repo_branch }}
+          test_site_repo: ${{ vars.TEST_SITE_REPO }}
+          test_site_repo_token: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+          test_site_repo_config_branch: ${{ env.test_site_repo_config_branch }}
+          test_site_repo_live_branch: ${{ env.test_site_repo_live_branch }}
+          test_site_repo_pr_branch: ${{ env.test_site_repo_pr_branch }}
+          test_site_repo_pr_branch_base: ${{ env.test_site_repo_pr_branch_base }}
+
+      - name: 'Test setup: mirror behind, align live, and leave a stale closed PR branch'
+        env:
+          GH_TOKEN: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+        working-directory: test
+        run: |
+          set -eu
+          cd site
+          git remote add remote-config ../remote
+          git fetch remote-config
+          # Create the site repo config-only branch 1 commit behind the config repo.
+          git checkout -b ${{ env.test_site_repo_config_branch }} remote-config/${{ env.test_config_repo_branch }}^
+          tmp_dir=$(mktemp -d)
+          cp * "$tmp_dir"
+          git push origin HEAD
+
+          # Ensure the live branch matches the new site repo config branch.
+          git checkout ${{ env.test_site_repo_live_branch }}
+          rm config/sync/*
+          mv "$tmp_dir"/* config/sync
+          echo baseline > config/sync/e
+          git add config/sync
+          # A plain commit (not --amend): the live branch tip is the orphan root
+          # commit that staging also descends from. Amending it would create a
+          # new root with no history in common with staging, breaking `gh pr
+          # create` below (unlike the job above, this test never resets staging
+          # onto live).
+          git commit -m "Update"
+          git push --force origin HEAD
+
+          # Leave behind a stale rejected PR branch from a previously closed PR.
+          git checkout -b ${{ env.test_site_repo_pr_branch }} ${{ env.test_site_repo_live_branch }}
+          echo rejected > config/sync/rejected
+          git add config/sync
+          git commit -m "Rejected config change from a previous PR"
+          git push origin HEAD
+          gh pr create \
+            --base ${{ env.test_site_repo_pr_branch_base }} \
+            --head ${{ env.test_site_repo_pr_branch }} \
+            --title "Old rejected PR" \
+            --body "Simulated previously rejected config PR."
+          # Closes without --delete-branch, so origin/PR_BRANCH remains.
+          gh pr close ${{ env.test_site_repo_pr_branch }}
+
+      - uses: ./test/update-config
+        id: run_action
+        with:
+          config_repo: ${{ vars.TEST_CONFIG_REPO }}
+          config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
+          config_repo_branch: ${{ env.test_config_repo_branch }}
+          site_repo: ${{ vars.TEST_SITE_REPO }}
+          site_repo_token: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+          site_repo_config_branch: ${{ env.test_site_repo_config_branch }}
+          site_repo_live_branch: ${{ env.test_site_repo_live_branch }}
+          site_repo_pr_branch: ${{ env.test_site_repo_pr_branch }}
+          site_repo_pr_branch_base: ${{ env.test_site_repo_pr_branch_base }}
+
+      - uses: ./test/update-config/.github/actions/test-assertions
+        with:
+          test_config_repo: ${{ vars.TEST_CONFIG_REPO }}
+          test_config_repo_branch: ${{ env.test_config_repo_branch }}
+          test_config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
+          test_site_repo: ${{ vars.TEST_SITE_REPO }}
+          test_site_repo_token: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+          test_site_repo_config_branch: ${{ env.test_site_repo_config_branch }}
+
+      - name: Assert the stale rejected history is discarded and a single fresh PR exists
+        env:
+          GH_TOKEN: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+        working-directory: test/site
+        run: |
+          set -eu
+          exit=0
+
+          pr_count=$(gh pr list --head ${{ env.test_site_repo_pr_branch }} --base ${{ env.test_site_repo_pr_branch_base }} --state open --json id --jq 'length')
+          if [[ "$pr_count" != "1" ]]; then
+            echo "**TEST FAILURE:** Expected exactly 1 open PR for the PR branch, found $pr_count." >> "$GITHUB_STEP_SUMMARY"
+            exit=1
+          fi
+
+          git fetch origin ${{ env.test_site_repo_live_branch }} ${{ env.test_site_repo_pr_branch }}
+
+          # The PR branch must be exactly one commit ahead of live: the rejected
+          # commit from the closed PR must not survive. (This is the assertion the
+          # buggy code fails.)
+          count=$(git rev-list --count origin/${{ env.test_site_repo_live_branch }}..origin/${{ env.test_site_repo_pr_branch }})
+          if [[ "$count" != "1" ]]; then
+            echo "**TEST FAILURE:** The PR branch should be exactly 1 commit ahead of live, was $count (stale rejected history leaked in)." >> "$GITHUB_STEP_SUMMARY"
+            exit=1
+          fi
+
+          if git log origin/${{ env.test_site_repo_pr_branch }} --format='%s' | grep -q "Rejected config change"; then
+            echo "**TEST FAILURE:** The rejected commit from the closed PR reappeared in the new PR history." >> "$GITHUB_STEP_SUMMARY"
+            exit=1
+          fi
+
+          # Sanity: the resurfaced file is gone and the current prod config is present.
+          git checkout origin/${{ env.test_site_repo_pr_branch }} -- config/sync
+          if [[ -f config/sync/rejected ]]; then
+            echo "**TEST FAILURE:** config/sync/rejected should not be present in the new PR branch." >> "$GITHUB_STEP_SUMMARY"
+            exit=1
+          fi
+          if [[ "$(cat config/sync/c)" != "modified" ]]; then
+            echo "**TEST FAILURE:** config/sync/c should carry the prod value 'modified'." >> "$GITHUB_STEP_SUMMARY"
+            exit=1
+          fi
+
+          exit $exit
+
+      - uses: ./test/update-config/.github/actions/test-teardown
+        if: ${{ always() }}
+        with:
+          branch_prefix: "${{ github.job }}-"
+
   test-existing-pr:
     name: Test updating an existing PR.
     runs-on: ubuntu-latest
