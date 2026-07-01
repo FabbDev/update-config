@@ -123,6 +123,8 @@ runs:
 
     - name: Read HEAD from new branches
       shell: sh
+      env:
+        INITIAL_SETUP: ${{ steps.checkout_site_repo_config_branch.outcome == 'failure' }}
       run: |
         # Read HEAD from new branches
         set -eu
@@ -130,12 +132,12 @@ runs:
         remote_head=$(git -C remote rev-parse HEAD)
         echo "local_head=$local_head" >> "$GITHUB_ENV"
         echo "remote_head=$remote_head" >> "$GITHUB_ENV"
-        if [ "$local_head" = "$remote_head" ]; then
+        if [ "$local_head" = "$remote_head" ] && [ "$INITIAL_SETUP" != "true" ]; then
           echo 'The local config branch `${{ inputs.site_repo_config_branch }}` is up-to-date with the remote. No further action required.' >> $GITHUB_STEP_SUMMARY
         fi
 
     - uses: actions/checkout@v4
-      if: ${{ env.local_head != env.remote_head }}
+      if: ${{ env.local_head != env.remote_head || steps.checkout_site_repo_config_branch.outcome == 'failure' }}
       with:
         repository: ${{ inputs.site_repo }}
         ref: ${{ inputs.site_repo_config_branch }}
@@ -168,7 +170,7 @@ runs:
 
     - name: Create a site branch with the config and open a PR
       id: create_pr
-      if: ${{ env.local_head != env.remote_head }}
+      if: ${{ env.local_head != env.remote_head || steps.checkout_site_repo_config_branch.outcome == 'failure' }}
       working-directory: local
       env:
         GH_TOKEN: ${{ inputs.site_repo_token }}

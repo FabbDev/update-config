@@ -99,6 +99,108 @@ jobs:
         with:
           branch_prefix: "${{ github.job }}-"
 
+  test-initial-setup-creates-pr:
+    name: Test that initial setup opens a PR when prod config diverges from live.
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-job
+    env:
+      test_config_repo_branch: "${{ github.job }}-main"
+      test_site_repo_config_branch: "${{ github.job }}-config-only"
+      test_site_repo_live_branch: "${{ github.job }}-main"
+      test_site_repo_pr_branch: "${{ github.job }}-automatic-config-export"
+      test_site_repo_pr_branch_base: "${{ github.job }}-staging"
+    steps:
+
+      - uses: actions/checkout@v4
+        with:
+          path: test/update-config
+
+      - uses: ./test/update-config/.github/actions/test-setup
+        with:
+          branch_prefix: "${{ github.job }}-"
+          test_config_repo: ${{ vars.TEST_CONFIG_REPO }}
+          test_config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
+          test_config_repo_branch: ${{ env.test_config_repo_branch }}
+          test_site_repo: ${{ vars.TEST_SITE_REPO }}
+          test_site_repo_token: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+          test_site_repo_config_branch: ${{ env.test_site_repo_config_branch }}
+          test_site_repo_live_branch: ${{ env.test_site_repo_live_branch }}
+          test_site_repo_pr_branch: ${{ env.test_site_repo_pr_branch }}
+          test_site_repo_pr_branch_base: ${{ env.test_site_repo_pr_branch_base }}
+
+      - name: 'Test setup: diverge prod config from live before the mirror branch exists'
+        working-directory: test
+        run: |
+          # Diverge prod config from the live branch, leaving the mirror branch absent.
+          set -eu
+          cd remote
+          echo firstrun > c
+          git add c
+          git commit -m "Prod config change before mirror branch exists"
+          git push origin HEAD:${{ env.test_config_repo_branch }}
+
+      - uses: ./test/update-config
+        id: run_action
+        with:
+          config_repo: ${{ vars.TEST_CONFIG_REPO }}
+          config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
+          config_repo_branch: ${{ env.test_config_repo_branch }}
+          site_repo: ${{ vars.TEST_SITE_REPO }}
+          site_repo_token: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+          site_repo_config_branch: ${{ env.test_site_repo_config_branch }}
+          site_repo_live_branch: ${{ env.test_site_repo_live_branch }}
+          site_repo_pr_branch: ${{ env.test_site_repo_pr_branch }}
+          site_repo_pr_branch_base: ${{ env.test_site_repo_pr_branch_base }}
+
+      - uses: ./test/update-config/.github/actions/test-assertions
+        with:
+          test_config_repo: ${{ vars.TEST_CONFIG_REPO }}
+          test_config_repo_branch: ${{ env.test_config_repo_branch }}
+          test_config_repo_token: ${{ secrets.TEST_CONFIG_REPO_TOKEN }}
+          test_site_repo: ${{ vars.TEST_SITE_REPO }}
+          test_site_repo_token: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+          test_site_repo_config_branch: ${{ env.test_site_repo_config_branch }}
+
+      - name: Assert a PR was created carrying the prod config
+        env:
+          GH_TOKEN: ${{ secrets.TEST_SITE_REPO_TOKEN }}
+        working-directory: test/site
+        run: |
+          # Assert a PR was created carrying the prod config
+          set -eu
+          exit=0
+
+          if [[ "$(gh pr list --head ${{ env.test_site_repo_pr_branch }} --json id)" == "[]" ]]; then
+            echo "**TEST FAILURE:** A PR should be created on initial setup when prod config diverges from live." >> "$GITHUB_STEP_SUMMARY"
+            exit=1
+          fi
+
+          git fetch origin ${{ env.test_site_repo_pr_branch }}
+          git checkout origin/${{ env.test_site_repo_pr_branch }} -- config/sync
+          if [[ "$(cat config/sync/c)" != "firstrun" ]]; then
+            echo "**TEST FAILURE:** The PR branch should carry the prod config (config/sync/c should be 'firstrun')." >> "$GITHUB_STEP_SUMMARY"
+            exit=1
+          fi
+
+          exit $exit
+
+      - name: Assert the summary names the PR branch, not the config branch
+        env:
+          SUMMARY: ${{ steps.run_action.outputs.summary }}
+        run: |
+          set -eu
+          printf '%s' "$SUMMARY" | grep -qF "${{ env.test_site_repo_pr_branch }}" || {
+            echo "**TEST FAILURE:** Summary should name the PR branch (\`${{ env.test_site_repo_pr_branch }}\`), was: $SUMMARY" >> "$GITHUB_STEP_SUMMARY"; exit 1; }
+          if printf '%s' "$SUMMARY" | grep -qF "${{ env.test_site_repo_config_branch }}"; then
+            echo "**TEST FAILURE:** Summary should not name the config-only branch as the commit target, was: $SUMMARY" >> "$GITHUB_STEP_SUMMARY"; exit 1
+          fi
+
+      - uses: ./test/update-config/.github/actions/test-teardown
+        if: ${{ always() }}
+        with:
+          branch_prefix: "${{ github.job }}-"
+
   test-create-pr:
     name: Test updating the mirrored config branch and creating a PR from it.
     runs-on: ubuntu-latest
