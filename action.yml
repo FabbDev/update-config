@@ -195,8 +195,15 @@ runs:
         git checkout ${{ inputs.site_repo_pr_branch }}
 
         cd config/sync
-        rm *
-        mv "$GITHUB_WORKSPACE"/remote/* .
+        # Remove all existing config: files, dotfiles, and the subdirectories
+        # that config collections/config_split produce without tripping `set -e`
+        # when config/sync is empty.
+        find . -mindepth 1 -delete
+        # Copy in the new config, recursing into subdirectories and skipping the
+        # remote checkout's own .git. `find` is a no-op (not an error) if the
+        # config repo is empty.
+        find "$GITHUB_WORKSPACE/remote" -mindepth 1 -maxdepth 1 ! -name .git \
+          -exec cp -a {} . \;
         git add .
         if [[ -n "$(git status --porcelain)" ]]; then
           git config user.name '${{ inputs.committer_name }}'

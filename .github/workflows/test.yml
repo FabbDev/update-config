@@ -140,6 +140,15 @@ jobs:
           git commit -m "Prod config change before mirror branch exists"
           git push origin HEAD:${{ env.test_config_repo_branch }}
 
+          # Leave an obsolete config subdirectory in live to prove subdir removal.
+          cd ../site
+          git checkout ${{ env.test_site_repo_live_branch }}
+          mkdir -p config/sync/obsolete_collection
+          echo stale > config/sync/obsolete_collection/legacy.yml
+          git add config/sync
+          git commit -m "Leave an obsolete config subdirectory in live"
+          git push origin HEAD
+
       - uses: ./test/update-config
         id: run_action
         with:
@@ -180,6 +189,25 @@ jobs:
           git checkout origin/${{ env.test_site_repo_pr_branch }} -- config/sync
           if [[ "$(cat config/sync/c)" != "firstrun" ]]; then
             echo "**TEST FAILURE:** The PR branch should carry the prod config (config/sync/c should be 'firstrun')." >> "$GITHUB_STEP_SUMMARY"
+            exit=1
+          fi
+
+          ref=origin/${{ env.test_site_repo_pr_branch }}
+          tree=$(git ls-tree -r --name-only "$ref" -- config/sync)
+          if [[ "$(git show "$ref:config/sync/language/en/system.site.yml")" != "subdir-config" ]]; then
+            echo "**TEST FAILURE:** config/sync/language/en/system.site.yml should be 'subdir-config' (config subdirectory not copied)." >> "$GITHUB_STEP_SUMMARY"
+            exit=1
+          fi
+          if [[ "$(git show "$ref:config/sync/.htaccess")" != "dotfile-config" ]]; then
+            echo "**TEST FAILURE:** config/sync/.htaccess should be 'dotfile-config' (dotfile not copied)." >> "$GITHUB_STEP_SUMMARY"
+            exit=1
+          fi
+          if grep -q '^config/sync/obsolete_collection/' <<<"$tree"; then
+            echo "**TEST FAILURE:** config/sync/obsolete_collection/ should have been removed (stale subdirectory not deleted)." >> "$GITHUB_STEP_SUMMARY"
+            exit=1
+          fi
+          if grep -q '^config/sync/\.git/' <<<"$tree"; then
+            echo "**TEST FAILURE:** config/sync/.git/ should not be present (remote .git was copied)." >> "$GITHUB_STEP_SUMMARY"
             exit=1
           fi
 
@@ -244,7 +272,7 @@ jobs:
           
           # Ensure the live branch matches the new site repo config branch.
           git checkout ${{ env.test_site_repo_live_branch }}
-          rm config/sync/*
+          find config/sync -mindepth 1 -delete
           mv "$tmp_dir"/* config/sync
           echo baseline > config/sync/e
           git add config/sync
@@ -307,6 +335,16 @@ jobs:
 
           if [[ "$(cat config/sync/e)" != "modified" ]]; then
             echo "**TEST FAILURE:** After merging the config PR the 'e' file is incorrect." >> "$GITHUB_STEP_SUMMARY"
+            exit=1
+          fi
+
+          if [[ ! -f config/sync/language/en/system.site.yml ]]; then
+            echo "**TEST FAILURE:** config/sync/language/en/system.site.yml should be present after merging the config PR (config subdirectory lost)." >> "$GITHUB_STEP_SUMMARY"
+            exit=1
+          fi
+
+          if [[ ! -f config/sync/.htaccess ]]; then
+            echo "**TEST FAILURE:** config/sync/.htaccess should be present after merging the config PR (dotfile lost)." >> "$GITHUB_STEP_SUMMARY"
             exit=1
           fi
 
@@ -373,7 +411,7 @@ jobs:
 
           # Ensure the live branch matches the new site repo config branch.
           git checkout ${{ env.test_site_repo_live_branch }}
-          rm config/sync/*
+          find config/sync -mindepth 1 -delete
           mv "$tmp_dir"/* config/sync
           echo baseline > config/sync/e
           git add config/sync
@@ -514,7 +552,7 @@ jobs:
           
           # Set up an existing PR.
           git checkout ${{ env.test_site_repo_pr_branch_base }}
-          rm config/sync/*
+          find config/sync -mindepth 1 -delete
           touch config/sync/test-existing-pr
           git add config/sync
           git commit --amend -m "Initial commmit"
@@ -580,6 +618,16 @@ jobs:
 
           if [[ -f config/sync/d ]]; then
             echo "**TEST FAILURE:** config/sync/d should be gone (stale pre-action file)." >> "$GITHUB_STEP_SUMMARY"
+            exit=1
+          fi
+
+          git fetch origin ${{ env.test_site_repo_pr_branch }}
+          if [[ "$(git show "origin/${{ env.test_site_repo_pr_branch }}:config/sync/language/en/system.site.yml")" != "subdir-config" ]]; then
+            echo "**TEST FAILURE:** config/sync/language/en/system.site.yml should be 'subdir-config' (config subdirectory not copied on update)." >> "$GITHUB_STEP_SUMMARY"
+            exit=1
+          fi
+          if [[ "$(git show "origin/${{ env.test_site_repo_pr_branch }}:config/sync/.htaccess")" != "dotfile-config" ]]; then
+            echo "**TEST FAILURE:** config/sync/.htaccess should be 'dotfile-config' (dotfile not copied on update)." >> "$GITHUB_STEP_SUMMARY"
             exit=1
           fi
 
