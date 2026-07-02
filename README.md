@@ -1,8 +1,6 @@
 # Automatic configuration export
 
-![Current test results](https://github.com/andriokha/update-config/actions/workflows/test.yml/badge.svg)
-
-**TODO: Extract the Drupal module `config_change_track` from Subscriptions.**
+![Current test results](https://github.com/FabbDev/update-config/actions/workflows/test.yml/badge.svg)
 
 This project supports automatically exporting configuration from a Drupal site
 and creating a PR with the changes.
@@ -36,6 +34,8 @@ and creating a PR with the changes.
    cp "$config_dir"/* "$config_repo_dir"
    pushd "$config_repo_dir"
    git init
+   git add .
+   git commit -m "Initial commit"
    git remote add origin "$config_repo_url"
    git push origin HEAD
    popd
@@ -46,13 +46,14 @@ and creating a PR with the changes.
    2. A read token for the Drupal site repo to pull config changes.
 3. Set up the host to push to the config repo:
    1. Add the required environment variables, see [`check-and-push-config.sh`].
-   2. Add _Config Change Track_ to the codebase and enable. **TODO: This needs
-      extracting from Faith Subscriptions.**
+   2. Add [Config Change Track] to the codebase and enable.
    3. Schedule [`check-and-push-config.sh`] to run regularly.
 4. Set up the Drupal site repo to pull from the config repo:
-   1. Check [`update-config-branch.yml`] for required permissions, secrets and
+   1. In the site repo, go to _Settings → Actions → General_ and enable
+      **Allow GitHub Actions to create and approve pull requests**.
+   2. Check [`update-config-branch.yml`] for required permissions, secrets and
       variables to set up.
-   2. Add [`update-config-branch.yml`] to the Drupal site repo's `/.github`
+   3. Add [`update-config-branch.yml`] to the Drupal site repo's `/.github`
       directory. It's configured to check for changes every 30 minutes (though
       GitHub doesn't guarantee it will run that frequently). It will create a
       branch `config-only` that mirrors the `main` branch of the config repo and
@@ -66,7 +67,7 @@ with the config repo, and opening a PR when the latest config doesn't match
 what's in the site repo's staging branch.
 
 ```yaml
-uses: andriokha/update-config@main
+uses: FabbDev/update-config@main
 with:
   # The GitHub config repo, eg. MyOrg/MySiteConfig.
   config_repo: ''
@@ -117,5 +118,12 @@ with:
   github_notify: ''
 ```
 
+## Testing the host script
+
+[`check-and-push-config.sh`] has a self-contained BATS test suite. Run it with
+`make test` (BATS is downloaded automatically on first run). Currently the other
+tests can only be run on GitHub.
+
 [`check-and-push-config.sh`]: scripts/check-and-push-config.sh
 [`update-config-branch.yml`]: workflow-templates/update-config-branch.yml
+[Config Change Track]: https://www.drupal.org/project/config_change_track

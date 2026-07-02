@@ -39,7 +39,7 @@ runs:
         test_site_repo_token: ${{ inputs.test_site_repo_token }}
 
     - name: Assert the state after running the action
-      shell: sh
+      shell: bash
       working-directory: test
       run: |
         # Assert the state after running the action

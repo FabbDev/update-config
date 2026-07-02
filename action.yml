@@ -1,6 +1,6 @@
 name: Update config branch
 description: Updates the config-only branch and creates a PR if there are any changes.
-# This works as part of automating config export. A cron job on Platform.sh
+# This works as part of automating config export. A cron job on the web site
 # periodically updates an intermediate config repo with the latest config. The
 # config repo only contains config, it doesn't share a history with the site
 # repo. This workflow keeps a branch on the site repo up-to-date with a branch
@@ -69,13 +69,18 @@ inputs:
     description: A space-separated list of github users including '@' to ping on a new PR, eg. '@andy @becca'.
     type: string
 
+outputs:
+  summary:
+    description: The primary outcome message of the config update / PR step.
+    value: ${{ steps.create_pr.outputs.summary }}
+
 runs:
   using: composite
   steps:
     # Optimize for the normal case that the two branches are the same. So start
     # by doing a shallow checkout of both and checking their hashes. If they're
     # different, then do a full checkout to enable a merge.
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       id: checkout_site_repo_config_branch
       with:
         repository: ${{ inputs.site_repo }}
@@ -85,14 +90,14 @@ runs:
       # It might error if the config-only branch doesn't exist yet.
       continue-on-error: true
 
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       if: ${{ steps.checkout_site_repo_config_branch.outcome == 'failure' }}
       with:
         repository: ${{ inputs.site_repo }}
         token: ${{ inputs.site_repo_token }}
         path: local
 
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       with:
         repository: ${{ inputs.config_repo }}
         ref: ${{ inputs.config_repo_branch }}
@@ -118,6 +123,8 @@ runs:
 
     - name: Read HEAD from new branches
       shell: sh
+      env:
+        INITIAL_SETUP: ${{ steps.checkout_site_repo_config_branch.outcome == 'failure' }}
       run: |
         # Read HEAD from new branches
         set -eu
@@ -125,12 +132,12 @@ runs:
         remote_head=$(git -C remote rev-parse HEAD)
         echo "local_head=$local_head" >> "$GITHUB_ENV"
         echo "remote_head=$remote_head" >> "$GITHUB_ENV"
-        if [ "$local_head" = "$remote_head" ]; then
+        if [ "$local_head" = "$remote_head" ] && [ "$INITIAL_SETUP" != "true" ]; then
           echo 'The local config branch `${{ inputs.site_repo_config_branch }}` is up-to-date with the remote. No further action required.' >> $GITHUB_STEP_SUMMARY
         fi
 
-    - uses: actions/checkout@v4
-      if: ${{ env.local_head != env.remote_head }}
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      if: ${{ env.local_head != env.remote_head || steps.checkout_site_repo_config_branch.outcome == 'failure' }}
       with:
         repository: ${{ inputs.site_repo }}
         ref: ${{ inputs.site_repo_config_branch }}
@@ -138,7 +145,7 @@ runs:
         fetch-depth: 0
         path: local
 
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       # If the repo config branch was created then we already have a full
       # checkout.
       if: ${{ env.local_head != env.remote_head && steps.checkout_site_repo_config_branch.outcome != 'failure' }}
@@ -162,7 +169,8 @@ runs:
         git push origin HEAD
 
     - name: Create a site branch with the config and open a PR
-      if: ${{ env.local_head != env.remote_head }}
+      id: create_pr
+      if: ${{ env.local_head != env.remote_head || steps.checkout_site_repo_config_branch.outcome == 'failure' }}
       working-directory: local
       env:
         GH_TOKEN: ${{ inputs.site_repo_token }}
@@ -170,25 +178,46 @@ runs:
       run: |
         # Create a site branch with the config and open a PR
         set -eu
+        # Decide whether to reuse the existing PR branch based on whether an
+        # open PR for this head->base already exists. A branch left behind by a
+        # closed/rejected PR must not have new commits stacked on its history.
+        open_pr=$(gh pr list \
+          --head ${{ inputs.site_repo_pr_branch }} \
+          --base ${{ inputs.site_repo_pr_branch_base }} \
+          --state open --json id --jq 'length')
         source_branch=${{ inputs.site_repo_pr_branch }}
-        if ! git show-branch remotes/origin/${{ inputs.site_repo_pr_branch }} &> /dev/null; then
-          git branch ${{ inputs.site_repo_pr_branch }} origin/${{ inputs.site_repo_live_branch }}
-          source_branch=${{ inputs.site_repo_pr_branch_base }}
+        if [[ "$open_pr" == "0" ]]; then
+          # No open PR: recreate the PR branch fresh from live so any stale or
+          # rejected history is discarded and it holds only the current diff.
+          git branch -f ${{ inputs.site_repo_pr_branch }} origin/${{ inputs.site_repo_live_branch }}
+          source_branch=${{ inputs.site_repo_live_branch }}
         fi
         git checkout ${{ inputs.site_repo_pr_branch }}
-        
+
         cd config/sync
-        rm *
-        mv "$GITHUB_WORKSPACE"/remote/* .
+        # Remove all existing config: files, dotfiles, and the subdirectories
+        # that config collections/config_split produce without tripping `set -e`
+        # when config/sync is empty.
+        find . -mindepth 1 -delete
+        # Copy in the new config, recursing into subdirectories and skipping the
+        # remote checkout's own .git. `find` is a no-op (not an error) if the
+        # config repo is empty.
+        find "$GITHUB_WORKSPACE/remote" -mindepth 1 -maxdepth 1 ! -name .git \
+          -exec cp -a {} . \;
         git add .
         if [[ -n "$(git status --porcelain)" ]]; then
           git config user.name '${{ inputs.committer_name }}'
           git config user.email '${{ inputs.committer_email }}'
           git commit -m "Export config from Prod" -m "${{ inputs.config_repo }}:$remote_head"
-          git push origin HEAD
-          echo 'Updated the config in branch `${{ inputs.site_repo_config_branch }}`.' >> $GITHUB_STEP_SUMMARY
-          # Create a PR if there isn't already one.
-          if [[ "$(gh pr list --head ${{ inputs.site_repo_pr_branch }} --json id)" == "[]" ]]; then 
+          # After `git branch -f` the local PR branch diverges from any stale
+          # `origin/<pr_branch>` left by a closed PR. This only ever targets the
+          # automation-owned PR branch.
+          git push --force-with-lease origin HEAD
+          summary="Updated the config in branch \`${{ inputs.site_repo_pr_branch }}\`."
+          echo "$summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "summary=$summary" >> "$GITHUB_OUTPUT"
+          # Create a PR if there isn't already an open one.
+          if [[ "$open_pr" == "0" ]]; then
             pr_url=$(gh pr create \
               -B ${{ inputs.site_repo_pr_branch_base }} \
               -H ${{ inputs.site_repo_pr_branch }} \
@@ -199,5 +228,7 @@ runs:
             echo "A PR for the branch already exists. No further action required." >> $GITHUB_STEP_SUMMARY
           fi
         else
-          echo "Branch \`${{ inputs.site_repo_config_branch }}\` has been updated, but the changes match what's already in branch \`$source_branch\`. No further action required." >> $GITHUB_STEP_SUMMARY
+          summary="Branch \`${{ inputs.site_repo_config_branch }}\` has been updated, but the changes match what's already in branch \`$source_branch\`. No further action required."
+          echo "$summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "summary=$summary" >> "$GITHUB_OUTPUT"
         fi
