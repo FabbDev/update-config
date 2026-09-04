@@ -22,9 +22,15 @@ on:
       - develop
   workflow_dispatch:
 
+# These tests share two real GitHub repos, and the branches they use are named
+# after the job alone, so two runs of this workflow cannot safely overlap. The
+# group deliberately omits github.ref: a pull_request run and the push run for
+# the same merge have different refs and would otherwise never serialise
+# against each other. cancel-in-progress would kill a run mid-test, and a
+# cancelled job's teardown doesn't reliably finish deleting its branches.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
 
 jobs:
   test-initial-setup:
