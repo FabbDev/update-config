@@ -76,7 +76,11 @@ runs:
         echo baseline > e
         mkdir -p language/en
         echo subdir-config > language/en/system.site.yml
-        echo dotfile-config > .htaccess
+        # A legacy config repo that still carries .htaccess copies. They belong
+        # to the site repo, so the action must never import them; the content
+        # differs from the site repo's so the tests can tell them apart.
+        echo stale-htaccess > .htaccess
+        echo stale-htaccess > language/en/.htaccess
         git add c e language .htaccess
         git rm d
         git commit -m "Updated"
@@ -91,6 +95,10 @@ runs:
         git rm -rf .
         mkdir -p a z config/sync
         find ../remote -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} config/sync \;
+        # The site repo owns the .htaccess files: overwrite the copies that came
+        # from the config repo so tests can prove the site's version survives.
+        echo site-htaccess > config/sync/.htaccess
+        echo site-htaccess > config/sync/language/en/.htaccess
         touch {a,z}/.gitkeep b
         git add .
         git commit -m "Add mock Drupal site"

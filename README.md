@@ -31,7 +31,9 @@ and creating a PR with the changes.
    # Run from the project root.
    config_dir=config/sync
    config_repo_dir="$(mktemp -d)"
-   cp "$config_dir"/* "$config_repo_dir"
+   find "$config_dir" -mindepth 1 -maxdepth 1 -exec cp -a {} "$config_repo_dir" \;
+   # The .htaccess belongs to the site repo, so keep it out of the config repo.
+   find "$config_repo_dir" -name .htaccess -delete
    pushd "$config_repo_dir"
    git init
    git add .
@@ -65,6 +67,11 @@ and creating a PR with the changes.
 The action is responsible for keeping the site repo's config branch up-to-date
 with the config repo, and opening a PR when the latest config doesn't match
 what's in the site repo's staging branch.
+
+`config/sync/.htaccess` (and any in a config collection subdirectory) is owned
+by the site repo: the action never deletes it or overwrites it from the config
+export. Drupal ships an updated one via a core update, so the site repo's copy
+is the current one and any copy carried in the config repo may be stale.
 
 ```yaml
 uses: FabbDev/update-config@main
