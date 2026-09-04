@@ -19,12 +19,15 @@ setup() {
     git config --global init.defaultBranch "main"
     git config --global push.default "simple"
 
-    # Drush stub: all subcommand invocations appended to DRUSH_CALL_LOG.
-    # Behaviour controlled per-test via NEEDS_EXPORT and EXPORT_FILES_DIR.
+    # Drush stub: all subcommand invocations appended to DRUSH_CALL_LOG, and
+    # watchdog messages written via php:eval appended to WATCHDOG_LOG.
+    # Behaviour controlled per-test via NEEDS_EXPORT, EXPORT_FILES_DIR and the
+    # *_EXIT knobs, which inject a failing drush command.
     local bin_dir="$BATS_TEST_TMPDIR/bin"
     mkdir -p "$bin_dir"
     export DRUSH_CALL_LOG="$BATS_TEST_TMPDIR/drush-calls.log"
-    touch "$DRUSH_CALL_LOG"
+    export WATCHDOG_LOG="$BATS_TEST_TMPDIR/watchdog.log"
+    touch "$DRUSH_CALL_LOG" "$WATCHDOG_LOG"
     cat > "$bin_dir/drush" << 'STUB'
 #!/usr/bin/env bash
 subcommand="$1"; shift
@@ -32,6 +35,7 @@ echo "$subcommand $*" >> "$DRUSH_CALL_LOG"
 case "$subcommand" in
   config-change-track:needs-export)
     echo "${NEEDS_EXPORT:-0}"
+    exit "${NEEDS_EXPORT_EXIT:-0}"
     ;;
   config:export)
     dest=""
@@ -48,6 +52,13 @@ case "$subcommand" in
     if [[ -n "$dest" ]]; then
       printf 'deny from all\n' > "$dest/.htaccess"
     fi
+    exit "${EXPORT_EXIT:-0}"
+    ;;
+  php:eval)
+    # Stands in for \Drupal::logger('update_config')->error(), which the script
+    # hands its message to through the environment.
+    printf '%s\n' "${UPDATE_CONFIG_LOG_MESSAGE-}" >> "$WATCHDOG_LOG"
+    exit "${EVAL_EXIT:-0}"
     ;;
 esac
 STUB
@@ -74,11 +85,13 @@ STUB
     echo "exported" > "$EXPORT_FILES_DIR/config.yml"
 
     unset CONFIG_REPO_BRANCH UPDATE_CONFIG_GIT_NAME UPDATE_CONFIG_GIT_EMAIL \
-          UPDATE_CONFIG_GIT_MESSAGE NEEDS_EXPORT
+          UPDATE_CONFIG_GIT_MESSAGE NEEDS_EXPORT NEEDS_EXPORT_EXIT \
+          EXPORT_EXIT EVAL_EXIT
 }
 
 _remote_commit_count() { git -C "$1" rev-list HEAD --count; }
 _remote_head()         { git -C "$1" rev-parse "${2:-HEAD}"; }
+_watchdog_log()        { cat "$WATCHDOG_LOG"; }
 
 # Early out
 
@@ -92,6 +105,8 @@ _remote_head()         { git -C "$1" rev-parse "${2:-HEAD}"; }
     ! grep -q "config:export" "$DRUSH_CALL_LOG"
     ! grep -q "set-last-export" "$DRUSH_CALL_LOG"
     [[ "$(_remote_head "$CONFIG_REPO_URL")" == "$initial_head" ]]
+    # A clean early-out is not a failure: nothing goes to watchdog.
+    [ ! -s "$WATCHDOG_LOG" ]
 }
 
 # Fresh clone
@@ -106,6 +121,8 @@ _remote_head()         { git -C "$1" rev-parse "${2:-HEAD}"; }
     # Exported file present in the pushed commit.
     git -C "$CONFIG_REPO_URL" show HEAD:config.yml
     grep -q "set-last-export --time" "$DRUSH_CALL_LOG"
+    # A successful run stays silent.
+    [ ! -s "$WATCHDOG_LOG" ]
 }
 
 # Existing checkout (fetch + reset path)
@@ -322,4 +339,131 @@ _remote_head()         { git -C "$1" rev-parse "${2:-HEAD}"; }
     [ "$status" -eq 0 ]
     # config.yml must appear on config-branch in the bare repo.
     git -C "$custom_bare" show refs/heads/config-branch:config.yml
+}
+
+# Failure logging to the Drupal watchdog
+
+@test "logs a failed clone to watchdog and exits non-zero" {
+    export NEEDS_EXPORT=1
+    export CONFIG_REPO_URL="$BATS_TEST_TMPDIR/no-such-repo.git"
+
+    run "$SCRIPT"
+
+    [ "$status" -ne 0 ]
+    local logged; logged=$(_watchdog_log)
+    [[ "$logged" == *"check-and-push-config.sh failed"* ]]
+    [[ "$logged" == *"exit $status"* ]]
+    # The git error itself is carried through, not just "something failed".
+    [[ "$logged" == *"no-such-repo.git"* ]]
+}
+
+@test "logs a rejected push to watchdog and leaves the remote unchanged" {
+    export NEEDS_EXPORT=1
+
+    # Reject anything pushed to the bare repo.
+    cat > "$CONFIG_REPO_URL/hooks/pre-receive" << 'HOOK'
+#!/usr/bin/env bash
+echo "rejected by test hook" >&2
+exit 1
+HOOK
+    chmod +x "$CONFIG_REPO_URL/hooks/pre-receive"
+
+    local initial_head; initial_head=$(_remote_head "$CONFIG_REPO_URL")
+
+    run "$SCRIPT"
+
+    [ "$status" -ne 0 ]
+    [[ "$(_remote_head "$CONFIG_REPO_URL")" == "$initial_head" ]]
+    [[ "$(_watchdog_log)" == *"rejected by test hook"* ]]
+    # The export is only marked done after a successful push.
+    ! grep -q "set-last-export" "$DRUSH_CALL_LOG"
+}
+
+@test "logs a failed config:export to watchdog and pushes nothing" {
+    export NEEDS_EXPORT=1
+    export EXPORT_EXIT=1
+
+    local initial_head; initial_head=$(_remote_head "$CONFIG_REPO_URL")
+
+    run "$SCRIPT"
+
+    [ "$status" -ne 0 ]
+    [[ "$(_remote_head "$CONFIG_REPO_URL")" == "$initial_head" ]]
+    [[ "$(_watchdog_log)" == *"check-and-push-config.sh failed"* ]]
+    ! grep -q "set-last-export" "$DRUSH_CALL_LOG"
+}
+
+@test "logs a failed needs-export to watchdog without exporting or pushing" {
+    export NEEDS_EXPORT_EXIT=1
+
+    local initial_head; initial_head=$(_remote_head "$CONFIG_REPO_URL")
+
+    run "$SCRIPT"
+
+    [ "$status" -ne 0 ]
+    [[ "$(_remote_head "$CONFIG_REPO_URL")" == "$initial_head" ]]
+    [[ "$(_watchdog_log)" == *"check-and-push-config.sh failed"* ]]
+    # A drush that can't answer must not be read as "no changes" *or* fall
+    # through to an export.
+    ! grep -q "config:export" "$DRUSH_CALL_LOG"
+    ! grep -q "set-last-export" "$DRUSH_CALL_LOG"
+}
+
+@test "logs unexpected needs-export output to watchdog without exporting or pushing" {
+    export NEEDS_EXPORT="banana"
+
+    run "$SCRIPT"
+
+    [ "$status" -ne 0 ]
+    local logged; logged=$(_watchdog_log)
+    [[ "$logged" == *"check-and-push-config.sh failed"* ]]
+    [[ "$logged" == *"Unexpected needs-export output: banana"* ]]
+    ! grep -q "config:export" "$DRUSH_CALL_LOG"
+    ! grep -q "set-last-export" "$DRUSH_CALL_LOG"
+}
+
+@test "redacts credentials embedded in the repo URL before logging" {
+    export NEEDS_EXPORT=1
+    # Port 1 is refused instantly, so this needs no network. transfer.
+    # credentialsInUrl=die makes git print the URL back with the username
+    # intact -- git redacts the password but not the user, and this project
+    # puts the access token in the *username* position.
+    git config --global transfer.credentialsInUrl die
+    export CONFIG_REPO_URL="https://s3cr3t:@127.0.0.1:1/nope.git"
+
+    run "$SCRIPT"
+
+    [ "$status" -ne 0 ]
+    local logged; logged=$(_watchdog_log)
+    [[ "$logged" != *"s3cr3t"* ]]
+    [[ "$logged" == *"https://***@127.0.0.1:1/nope.git"* ]]
+    # And the replayed output the caller (cron) sees is redacted too.
+    [[ "$output" != *"s3cr3t"* ]]
+}
+
+@test "keeps the original failure status when the watchdog write itself fails" {
+    export NEEDS_EXPORT=1
+    export EVAL_EXIT=1
+    export CONFIG_REPO_URL="$BATS_TEST_TMPDIR/no-such-repo.git"
+
+    # Establish the status a working watchdog write would have produced.
+    run env EVAL_EXIT=0 "$SCRIPT"
+    local expected_status="$status"
+    [ "$expected_status" -ne 0 ]
+    rm -rf "$CONFIG_REPO_TEMP_DIR"
+
+    run "$SCRIPT"
+
+    [ "$status" -eq "$expected_status" ]
+    [[ "$output" == *"Could not write the failure to the Drupal watchdog."* ]]
+}
+
+@test "replays captured output to the caller so cron mail still gets it" {
+    export NEEDS_EXPORT=1
+    export CONFIG_REPO_URL="$BATS_TEST_TMPDIR/no-such-repo.git"
+
+    run "$SCRIPT"
+
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"no-such-repo.git"* ]]
 }

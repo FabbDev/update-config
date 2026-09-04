@@ -49,7 +49,10 @@ and creating a PR with the changes.
 3. Set up the host to push to the config repo:
    1. Add the required environment variables, see [`check-and-push-config.sh`].
    2. Add [Config Change Track] to the codebase and enable.
-   3. Schedule [`check-and-push-config.sh`] to run regularly.
+   3. Schedule [`check-and-push-config.sh`] to run regularly, from the project
+      root so drush can bootstrap Drupal.
+   4. If config stops arriving, run `drush watchdog:show --type=update_config`:
+      the script logs every failure there, with credentials redacted.
 4. Set up the Drupal site repo to pull from the config repo:
    1. In the site repo, go to _Settings → Actions → General_ and enable
       **Allow GitHub Actions to create and approve pull requests**.
