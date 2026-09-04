@@ -27,11 +27,16 @@ temp_dir=${CONFIG_REPO_TEMP_DIR-/tmp/config_change_track}
 mkdir -p "$temp_dir"
 pushd "$temp_dir"
 if [[ -d .git ]]; then
-  # Shouldn't really be necessary, but just in case.
-  git fetch
-  git reset --hard origin/$config_repo_branch
+  # The URL may have changed since this checkout was created (typically a
+  # rotated access token embedded in the URL) so always repoint origin at the
+  # current value rather than reusing the stored one.
+  git remote set-url origin "$CONFIG_REPO_URL"
+  git fetch origin
+  # -f -B copes with $CONFIG_REPO_URL potentially pointing at a different repo
+  # (unrelated history) or a different branch.
+  git checkout -f -B "$config_repo_branch" "origin/$config_repo_branch"
 else
-  git clone --branch $config_repo_branch "$CONFIG_REPO_URL" .
+  git clone --branch "$config_repo_branch" "$CONFIG_REPO_URL" .
 fi
 time=$(date '+%s')
 # Note if using config_split, this will only work with 2.x and collection
@@ -46,7 +51,10 @@ git config user.email "${UPDATE_CONFIG_GIT_EMAIL:-config-update@example.com}"
 # Allow for the possibility that there are no changes.
 if [[ -n "$(git status --porcelain)" ]]; then
   git commit -m "${UPDATE_CONFIG_GIT_MESSAGE:-Export config from Prod}"
-  git push
+  # Explicit remote and refspec: a bare push honours the host user's
+  # push.default / remote.pushDefault, which can silently push to the wrong
+  # remote and still exit 0.
+  git push origin "HEAD:$config_repo_branch"
 fi
 drush config-change-track:set-last-export --time $time
 

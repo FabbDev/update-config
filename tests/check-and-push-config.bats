@@ -129,6 +129,75 @@ _remote_head()         { git -C "$1" rev-parse "${2:-HEAD}"; }
     grep -q "set-last-export --time" "$DRUSH_CALL_LOG"
 }
 
+# Existing checkout, but CONFIG_REPO_URL now points elsewhere (e.g. rotated token)
+
+@test "uses the current CONFIG_REPO_URL when it changed after the checkout was created" {
+    export NEEDS_EXPORT=1
+
+    local original_bare="$CONFIG_REPO_URL"
+
+    # Pre-clone from the original bare repo so the script enters the
+    # fetch+reset branch with a stored origin URL that is about to go stale.
+    git clone "$original_bare" "$CONFIG_REPO_TEMP_DIR" --quiet 2>/dev/null
+    local original_head; original_head=$(_remote_head "$original_bare")
+
+    # Seed a second bare repo and repoint CONFIG_REPO_URL at it, simulating
+    # the URL (and embedded token) changing since the checkout was made.
+    local new_bare="$BATS_TEST_TMPDIR/new-repo.git"
+    git init --bare "$new_bare"
+    local seed="$BATS_TEST_TMPDIR/new-seed"
+    git clone "$new_bare" "$seed" --quiet 2>/dev/null
+    echo "other initial" > "$seed/other-initial.yml"
+    git -C "$seed" add .
+    git -C "$seed" commit -m "Initial commit" --quiet
+    git -C "$seed" push origin main --quiet
+    rm -rf "$seed"
+
+    export CONFIG_REPO_URL="$new_bare"
+
+    run "$SCRIPT"
+
+    [ "$status" -eq 0 ]
+    # Exported config lands in the new repo, not the original.
+    git -C "$new_bare" show HEAD:config.yml
+    grep -q "set-last-export --time" "$DRUSH_CALL_LOG"
+    # Original bare repo was never touched.
+    [[ "$(_remote_head "$original_bare")" == "$original_head" ]]
+    # Checkout is left pointing at the current URL, not the stale one.
+    [[ "$(git -C "$CONFIG_REPO_TEMP_DIR" remote get-url origin)" == "$new_bare" ]]
+}
+
+# Existing checkout, but CONFIG_REPO_BRANCH now points elsewhere
+
+@test "uses the current CONFIG_REPO_BRANCH when it changed after the checkout was created" {
+    export NEEDS_EXPORT=1
+
+    # Pre-clone on 'main' so the script enters the fetch+reset branch.
+    git clone "$CONFIG_REPO_URL" "$CONFIG_REPO_TEMP_DIR" --quiet 2>/dev/null
+    local main_head; main_head=$(_remote_head "$CONFIG_REPO_URL" "refs/heads/main")
+
+    # Add a second branch to the same bare repo and switch to it.
+    local seed="$BATS_TEST_TMPDIR/branch-seed"
+    git clone "$CONFIG_REPO_URL" "$seed" --quiet 2>/dev/null
+    git -C "$seed" checkout -b other-branch --quiet
+    echo "other" > "$seed/other.yml"
+    git -C "$seed" add .
+    git -C "$seed" commit -m "Other branch commit" --quiet
+    git -C "$seed" push origin other-branch --quiet
+    rm -rf "$seed"
+
+    export CONFIG_REPO_BRANCH="other-branch"
+
+    run "$SCRIPT"
+
+    [ "$status" -eq 0 ]
+    # Exported config lands on the new branch.
+    git -C "$CONFIG_REPO_URL" show refs/heads/other-branch:config.yml
+    grep -q "set-last-export --time" "$DRUSH_CALL_LOG"
+    # main is untouched.
+    [[ "$(_remote_head "$CONFIG_REPO_URL" "refs/heads/main")" == "$main_head" ]]
+}
+
 # Export produces no diff
 
 @test "skips commit and push but still calls set-last-export when export yields no diff" {
