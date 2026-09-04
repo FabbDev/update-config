@@ -45,11 +45,17 @@ time=$(date '+%s')
 # (An alternative solution would be to modify $settings['config_sync_director']
 # just for this command.)
 drush config:export --destination="$temp_dir" --yes
-git add .
+# Drupal writes an .htaccess into the config directory to block web access to
+# it. It belongs to the site repo, not the config export, so keep it out of the
+# config repo (and drop it if an earlier run committed one).
+git rm --cached --quiet --ignore-unmatch -- '*.htaccess'
+git add --all -- . ':(exclude)*.htaccess'
 git config user.name "${UPDATE_CONFIG_GIT_NAME:-R2D2}"
 git config user.email "${UPDATE_CONFIG_GIT_EMAIL:-config-update@example.com}"
-# Allow for the possibility that there are no changes.
-if [[ -n "$(git status --porcelain)" ]]; then
+# Allow for the possibility that there are no changes. The .htaccess is
+# untracked and not ignored, so it always shows up in `git status`; only staged
+# changes tell us whether there's anything to commit.
+if ! git diff --cached --quiet; then
   git commit -m "${UPDATE_CONFIG_GIT_MESSAGE:-Export config from Prod}"
   # Explicit remote and refspec: a bare push honours the host user's
   # push.default / remote.pushDefault, which can silently push to the wrong
