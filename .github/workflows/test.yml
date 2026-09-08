@@ -20,14 +20,17 @@ on:
     branches:
       - main
       - develop
-  schedule:
-    # * is a special character in YAML so you have to quote this string
-    - cron:  '0 0 1 * *'
   workflow_dispatch:
 
+# These tests share two real GitHub repos, and the branches they use are named
+# after the job alone, so two runs of this workflow cannot safely overlap. The
+# group deliberately omits github.ref: a pull_request run and the push run for
+# the same merge have different refs and would otherwise never serialise
+# against each other. cancel-in-progress would kill a run mid-test, and a
+# cancelled job's teardown doesn't reliably finish deleting its branches.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
 
 jobs:
   test-initial-setup:
@@ -140,11 +143,15 @@ jobs:
           git commit -m "Prod config change before mirror branch exists"
           git push origin HEAD:${{ env.test_config_repo_branch }}
 
-          # Leave an obsolete config subdirectory in live to prove subdir removal.
+          # Leave an obsolete config subdirectory in live to prove subdir
+          # removal. Its .htaccess proves the restore step's dirname guard: the
+          # directory is gone from the export, so its .htaccess must not
+          # resurrect it.
           cd ../site
           git checkout ${{ env.test_site_repo_live_branch }}
           mkdir -p config/sync/obsolete_collection
           echo stale > config/sync/obsolete_collection/legacy.yml
+          echo site-htaccess > config/sync/obsolete_collection/.htaccess
           git add config/sync
           git commit -m "Leave an obsolete config subdirectory in live"
           git push origin HEAD
@@ -198,8 +205,14 @@ jobs:
             echo "**TEST FAILURE:** config/sync/language/en/system.site.yml should be 'subdir-config' (config subdirectory not copied)." >> "$GITHUB_STEP_SUMMARY"
             exit=1
           fi
-          if [[ "$(git show "$ref:config/sync/.htaccess")" != "dotfile-config" ]]; then
-            echo "**TEST FAILURE:** config/sync/.htaccess should be 'dotfile-config' (dotfile not copied)." >> "$GITHUB_STEP_SUMMARY"
+          # The .htaccess belongs to the site repo: the config repo's stale copy
+          # must not overwrite it, and it must not be deleted.
+          if [[ "$(git show "$ref:config/sync/.htaccess")" != "site-htaccess" ]]; then
+            echo "**TEST FAILURE:** config/sync/.htaccess should be 'site-htaccess' (site repo's dotfile lost or overwritten by the config repo's)." >> "$GITHUB_STEP_SUMMARY"
+            exit=1
+          fi
+          if [[ "$(git show "$ref:config/sync/language/en/.htaccess")" != "site-htaccess" ]]; then
+            echo "**TEST FAILURE:** config/sync/language/en/.htaccess should be 'site-htaccess' (nested dotfile lost or overwritten by the config repo's)." >> "$GITHUB_STEP_SUMMARY"
             exit=1
           fi
           if grep -q '^config/sync/obsolete_collection/' <<<"$tree"; then
@@ -275,6 +288,9 @@ jobs:
           find config/sync -mindepth 1 -delete
           mv "$tmp_dir"/* config/sync
           echo baseline > config/sync/e
+          # The site repo owns the .htaccess; the config repo's stale copy must
+          # never replace it.
+          echo site-htaccess > config/sync/.htaccess
           git add config/sync
           git commit --amend -m "Update"
           git push --force origin HEAD
@@ -343,8 +359,16 @@ jobs:
             exit=1
           fi
 
-          if [[ ! -f config/sync/.htaccess ]]; then
-            echo "**TEST FAILURE:** config/sync/.htaccess should be present after merging the config PR (dotfile lost)." >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$(cat config/sync/.htaccess)" != "site-htaccess" ]]; then
+            echo "**TEST FAILURE:** config/sync/.htaccess should be 'site-htaccess' after merging the config PR (site repo's dotfile lost or overwritten by the config repo's)." >> "$GITHUB_STEP_SUMMARY"
+            exit=1
+          fi
+
+          # The config repo carries a stale language/en/.htaccess; it must not
+          # be imported into a config collection directory that has only just
+          # appeared in the site repo.
+          if [[ -f config/sync/language/en/.htaccess ]]; then
+            echo "**TEST FAILURE:** config/sync/language/en/.htaccess should be absent (the config repo's copy was imported)." >> "$GITHUB_STEP_SUMMARY"
             exit=1
           fi
 
@@ -414,6 +438,9 @@ jobs:
           find config/sync -mindepth 1 -delete
           mv "$tmp_dir"/* config/sync
           echo baseline > config/sync/e
+          # The site repo owns the .htaccess; the config repo's stale copy must
+          # never replace it.
+          echo site-htaccess > config/sync/.htaccess
           git add config/sync
           # A plain commit (not --amend): the live branch tip is the orphan root
           # commit that staging also descends from. Amending it would create a
@@ -499,6 +526,12 @@ jobs:
             echo "**TEST FAILURE:** config/sync/c should carry the prod value 'modified'." >> "$GITHUB_STEP_SUMMARY"
             exit=1
           fi
+          # The PR branch was recreated with `git branch -f` from live, so the
+          # restored .htaccess comes from live's index.
+          if [[ "$(cat config/sync/.htaccess)" != "site-htaccess" ]]; then
+            echo "**TEST FAILURE:** config/sync/.htaccess should be 'site-htaccess' in the recreated PR branch (site repo's dotfile lost or overwritten by the config repo's)." >> "$GITHUB_STEP_SUMMARY"
+            exit=1
+          fi
 
           exit $exit
 
@@ -545,11 +578,25 @@ jobs:
           # Ensure the site repo config branch is behind the config repo.
           git remote add remote-config ../remote
           git fetch remote-config
-          git checkout -b ${{ env.test_site_repo_config_branch }} remote-config/${{ env.test_config_repo_branch }}^
+          # Pin the mirror branch's start point before the config repo gains
+          # another commit below, so it stays the initial mock config.
+          mirror_base=$(git rev-parse remote-config/${{ env.test_config_repo_branch }}^)
+
+          # Drop the .htaccess files from the config repo, leaving its HEAD with
+          # none. The site repo owns them, so its copies must survive an export
+          # that no longer carries any. (This is the regression this job guards.)
+          cd ../remote
+          git rm --quiet .htaccess language/en/.htaccess
+          git commit -m "Drop the .htaccess files from the config repo"
+          git push origin HEAD:${{ env.test_config_repo_branch }}
+          cd ../site
+          git fetch remote-config
+
+          git checkout -b ${{ env.test_site_repo_config_branch }} "$mirror_base"
           tmp_dir=$(mktemp -d)
           cp * "$tmp_dir"
           git push origin HEAD
-          
+
           # Set up an existing PR.
           git checkout ${{ env.test_site_repo_pr_branch_base }}
           find config/sync -mindepth 1 -delete
@@ -557,9 +604,10 @@ jobs:
           git add config/sync
           git commit --amend -m "Initial commmit"
           git push origin HEAD --force
-          
+
           git checkout -b ${{ env.test_site_repo_pr_branch }}
           cp -r "$tmp_dir"/* config/sync
+          echo site-htaccess > config/sync/.htaccess
           git add config/sync
           git commit -m "Update"
           git push origin HEAD
@@ -626,8 +674,10 @@ jobs:
             echo "**TEST FAILURE:** config/sync/language/en/system.site.yml should be 'subdir-config' (config subdirectory not copied on update)." >> "$GITHUB_STEP_SUMMARY"
             exit=1
           fi
-          if [[ "$(git show "origin/${{ env.test_site_repo_pr_branch }}:config/sync/.htaccess")" != "dotfile-config" ]]; then
-            echo "**TEST FAILURE:** config/sync/.htaccess should be 'dotfile-config' (dotfile not copied on update)." >> "$GITHUB_STEP_SUMMARY"
+          # The config repo HEAD carries no .htaccess at all; the site repo's own
+          # must survive the update rather than being deleted.
+          if [[ "$(git show "origin/${{ env.test_site_repo_pr_branch }}:config/sync/.htaccess")" != "site-htaccess" ]]; then
+            echo "**TEST FAILURE:** config/sync/.htaccess should be 'site-htaccess' (the site repo's dotfile was deleted by an export that carries none)." >> "$GITHUB_STEP_SUMMARY"
             exit=1
           fi
 
